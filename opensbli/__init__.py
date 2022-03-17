@@ -8,3 +8,4 @@ from .initialisation import *
 from .optimisations import *
 from .multiblock import *
 from .filters import *
+from .linear_solver import *
