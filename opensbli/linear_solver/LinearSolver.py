@@ -3,8 +3,8 @@
    @details This class will help users to setup the linear solvers, e.g., the options.
 """
 
-
-class LinearSolver:
+from builtins import super
+class LinearSolver(object):
     def __init__(self, dim, block_name, block_number):
         self.name = "_at_"+block_name + str(block_number)
         self.block_name = block_name
@@ -16,10 +16,10 @@ class LinearSolver:
         return self.name
 
     def Initialise(self):
-        return self.initialise_class + " *"+self.name + " = " + "new " + self.initialise_class+"("+self.block_name+");"
+        return self.initialise_class + " *"+self.name + " = " + "new " + self.initialise_class+"("+self.block_name+");\n"
 
     def Finalise(self):
-        return "delete " + self.name + ";"
+        return "delete " + self.name + ";\n"
 
     def Call(self, direction, result):
         return self.solver+"( "+str(self.space_dim)+","+str(direction)+", a, b, c, d, result, "+self.name+");"
@@ -28,6 +28,6 @@ class LinearSolver:
 class TridiagonalSolver(LinearSolver):
     def __init__(self, dim, block_name, block_number, options=()):
         super().__init__(dim, block_name, block_number)
-        self.name = "Trid"+self.name
+        self.name = "trid"+self.name
         self.initialise_class = "ops_tridsolver_params"
         self.solver = "ops_tridMultiDimBatch_Inc"
