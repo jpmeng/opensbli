@@ -11,7 +11,7 @@ from sympy import Symbol, flatten
 from opensbli.core.grid import GridVariable
 from opensbli.core.datatypes import SimulationDataType
 from sympy import Pow, Idx, pprint, count_ops
-from opensbli.code_generation.opsc import OPSC, WriteString, OPSCCodePrinter, OPSAccess, ccode,indent_code
+from opensbli.code_generation.opsc import OPSC, WriteString, OPSCCodePrinter, OPSAccess, ccode, indent_code
 from opensbli.linear_solver.LinearSolver import LinearSolver
 import os
 import logging
@@ -20,14 +20,14 @@ BUILD_DIR = os.getcwd()
 
 
 class OPSCImplicit(OPSC):
-
-    def __init__(self, algorithm, LinearSolver, operation_count=False, OPS_diagnostics=1):
-        """ Generating an OPSC code from the algorithm class.
+    """ Generating an OPSC code from the algorithm class.
         :arg object algorithm: An OpenSBLI algorithm class.
         :arg bool operation_count: If True, prints the number of arithmetic operations per kernel.
         :arg int OPS_diagnostics: OPS performance diagnostics. The default of 1 provides no kernel-based timing output
         A value of 5 gives a kernel breakdown of computational kernel and MPI exchange time."""
 
+    # Revised
+    def __init__(self, algorithm, LinearSolver, operation_count=False, OPS_diagnostics=1):
         # if not algorithm.MultiBlock:
         self.operation_count = operation_count
         self.OPS_diagnostics = OPS_diagnostics
@@ -52,44 +52,6 @@ class OPSCImplicit(OPSC):
         f.close()
         print("Successfully generated the OPS C code.")
         return
-
-    def wrap_long_lines(self, code_lines):
-        """ """
-        limit = 120
-        space = ' '
-        formatted_code = []
-        for code in code_lines:
-            if len(code) > limit:
-                # count the leading spaces so that we can use it at the end
-                Leading_spaces = len(code) - len(code.lstrip())
-                codelstrip = code.lstrip()
-                length_ofstring = Leading_spaces
-                split_lines = []
-                # start the string with the leading spaces
-                string = Leading_spaces*space
-                for s in codelstrip.split(" "):
-                    length_ofstring = len(string) + len(s)
-                    if length_ofstring >= limit:
-                        split_lines += [string]
-                        # Increase the indentation by 4 spaces
-                        string = (Leading_spaces + Leading_spaces)*space + s
-                    else:
-                        string = string + " " + s
-                formatted_code += split_lines + [string]
-                # Check the correctness of the code
-                s1 = ''.join(split_lines + [string])
-                s1 = "".join(s1.split())
-                s2 = "".join(code.split())
-                if s1 == s2:
-                    pass
-                else:
-                    print(code)
-                    print('\n'.join(split_lines + [string]))
-                    raise ValueError("The code and the formatted line are not same")
-            else:
-                formatted_code += [code]
-
-        return formatted_code
 
     def kernel_header(self, tuple_list):
         code = []
@@ -204,6 +166,7 @@ class OPSCImplicit(OPSC):
         files = [f.close() for f in files]
         return
 
+    # revised
     def ops_exit(self):
         """ Exits the OPS program with optional kernel-based timing output."""
         output = []
@@ -241,6 +204,7 @@ class OPSCImplicit(OPSC):
                 out += ['FILE *f = fopen(\"%s\", \"w\");' % str(algorithm.simulation_monitor.output_file)]
         return out
 
+    # revised
     def opsc_def_decs(self, algorithm):
         """ Declares the datasets and stencils required by the program."""
         from opensbli.core.kernel import StencilObject, ConstantsToDeclare
@@ -301,7 +265,7 @@ class OPSCImplicit(OPSC):
             output += [WriteString("#include \"bc_exchanges.h\"")]  # Include statement in the code
 
         output += self.ops_partition()
-        output += [WriteString("// initialize linear solver Library"),WriteString(self.linear_solver.Initialise())]
+        output += [WriteString("// initialize linear solver Library"), WriteString(self.linear_solver.Initialise())]
         return output
 
     def ops_stencils_declare(self, s):
