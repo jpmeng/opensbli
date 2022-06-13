@@ -19,7 +19,7 @@ LOG = logging.getLogger(__name__)
 BUILD_DIR = os.getcwd()
 
 
-class OPSCImplicit(OPSC):
+class OPSCCompact(OPSC):
     """ Generating an OPSC code from the algorithm class.
         :arg object algorithm: An OpenSBLI algorithm class.
         :arg bool operation_count: If True, prints the number of arithmetic operations per kernel.

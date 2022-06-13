@@ -4,18 +4,22 @@
    @details
 """
 
-from sympy import IndexedBase, Symbol, Rational, solve, interpolating_poly, integrate, Abs, Float, flatten, S
-from opensbli.core.opensblifunctions import Function, BasicDiscretisation,DerPrint
-from opensbli.core.opensbliobjects import ConstantObject
+from sympy import IndexedBase, Symbol, Rational, solve, interpolating_poly, integrate, Abs, Float, flatten, S, postorder_traversal, Function, flatten, S, factor
+from sympy.core import Add, Mul
+from opensbli.code_generation.opsc import WriteString
+from opensbli.core.opensblifunctions import Function, BasicDiscretisation, DerPrint
+from opensbli.core.opensbliobjects import ConstantObject, DataSet, CoordinateObject
 from opensbli.equation_types.opensbliequations import SimulationEquations, OpenSBLIEq, NonSimulationEquations
 from opensbli.core.grid import GridVariable
 from .scheme import Scheme
 from sympy import horner, pprint
 from opensbli.schemes.spatial.shock_capturing import ShockCapturing, LLFCharacteristic
 
+from opensbli.core.kernel import Kernel
+
 from builtins import super
 
-kernel_derivative_x_template="""
+kernel_derivative_x_template = """
 void PreprocessX4thCompact(const ACC<double> &u, ACC<double> &a, ACC<double> &b,
                  ACC<double> &c, ACC<double> &d, int *idx) {
   const int i{idx[0]};
@@ -38,7 +42,7 @@ void PreprocessX4thCompact(const ACC<double> &u, ACC<double> &a, ACC<double> &b,
 }
 """
 
-kernel_derivative_y_template="""void PreprocessY4thCompact(const ACC<double> &u, ACC<double> &a, ACC<double> &b,
+kernel_derivative_y_template = """void PreprocessY4thCompact(const ACC<double> &u, ACC<double> &a, ACC<double> &b,
                  ACC<double> &c, ACC<double> &d, int *idx) {
   const int j{idx[1]};
   d(0, 0, 0) = u(0, 1, 0) - u(0, -1, 0);
@@ -58,7 +62,7 @@ kernel_derivative_y_template="""void PreprocessY4thCompact(const ACC<double> &u,
 }
 """
 
-kernel_derivative_z_template="""void preprocessZ(const ACC<double> &u, ACC<double> &a, ACC<double> &b,
+kernel_derivative_z_template = """void preprocessZ(const ACC<double> &u, ACC<double> &a, ACC<double> &b,
                  ACC<double> &c, ACC<double> &d, int *idx) {
   const int k{idx[2]};
   d(0, 0, 0) = u(0, 0, 1) - u(0, 0, -1);
@@ -79,8 +83,9 @@ kernel_derivative_z_template="""void preprocessZ(const ACC<double> &u, ACC<doubl
   }
 }
 """
+kernel_templates = [kernel_derivative_x_template, kernel_derivative_y_template, kernel_derivative_z_template]
 
-wrap_function_template_x="""
+wrap_function_template_x = """
 void CompactDifferenceX(ops_block& block, ops_dat& u, ops_dat& a, ops_dat& b,
                         ops_dat& c, ops_dat& d, ops_dat& ux,
                         ops_tridsolver_params* trid) {
@@ -106,7 +111,7 @@ void CompactDifferenceX(ops_block& block, ops_dat& u, ops_dat& a, ops_dat& b,
 }
 """
 
-wrap_function_template_y="""
+wrap_function_template_y = """
 void CompactDifferenceY(ops_block& block, ops_dat& u, ops_dat& a, ops_dat& b,
                         ops_dat& c, ops_dat& d, ops_dat& uy,
                         ops_tridsolver_params* trid) {
@@ -132,9 +137,9 @@ void CompactDifferenceY(ops_block& block, ops_dat& u, ops_dat& a, ops_dat& b,
 }
 """
 
-wrap_function_template_y="""
-void CompactDifferenceY(ops_block& block, ops_dat& u, ops_dat& a, ops_dat& b,
-                        ops_dat& c, ops_dat& d, ops_dat& uy,
+wrap_function_template_z = """
+void CompactDifferenceZ(ops_block& block, ops_dat& u, ops_dat& a, ops_dat& b,
+                        ops_dat& c, ops_dat& d, ops_dat& uz,
                         ops_tridsolver_params* trid) {
   int* size{u->size};
   int* dm{u->d_m};
@@ -144,24 +149,41 @@ void CompactDifferenceY(ops_block& block, ops_dat& u, ops_dat& a, ops_dat& b,
     size[i] = size[i] - dp[i] + dm[i];
   };
   int iterRange[]{0, size[0], 0, size[1], 0, size[2]};
-  ops_par_loop(preprocessY, "preprocessY", block, 3, iterRange,
+  ops_par_loop(preprocessZ, "preprocessZ", block, 3, iterRange,
                ops_arg_dat(u, 1, S3D_7PT, "double", OPS_READ),
                ops_arg_dat(a, 1, S3D_000, "double", OPS_WRITE),
                ops_arg_dat(b, 1, S3D_000, "double", OPS_WRITE),
                ops_arg_dat(c, 1, S3D_000, "double", OPS_WRITE),
                ops_arg_dat(d, 1, S3D_000, "double", OPS_WRITE),
-               ops_arg_dat(uy, 1, S3D_000, "double", OPS_WRITE), ops_arg_idx());
+               ops_arg_dat(uz, 1, S3D_000, "double", OPS_WRITE), ops_arg_idx());
 
   // Get the u_y, note that the solver will add result to ux so that uy must be
   // // zero before the call
-  ops_tridMultiDimBatch_Inc(spaceDim, 0, size, a, b, c, d, uy, trid);
+  ops_tridMultiDimBatch_Inc(spaceDim, 0, size, a, b, c, d, uz, trid);
 }
 """
+
+wrap_templates = [wrap_function_template_x, wrap_function_template_y, wrap_function_template_z]
+
+
+class CompactHalos(object):
+    """Number of halo points required for the compact scheme. Assumes they are the same in all dimensions.
+  """
+
+    def __init__(self, order):
+        # we assume that compact schemes always requires one halo by default
+        self.halos = [-1, 1]
+        return
+
+    def get_halos(self, side):
+        return self.halos[side]
+
+    def __str__(self):
+        return "CompactHalos"
 
 
 class CompactDerivative(Function, BasicDiscretisation, DerPrint):
     """wrapper class to represent derivatives using the compact scheme
-    Sympy already have a "Derivative" class, thus double D
     """
     def __new__(cls, expr, *args):
         args = tuple(flatten([expr] + list(args)))
@@ -169,14 +191,6 @@ class CompactDerivative(Function, BasicDiscretisation, DerPrint):
         ret.store = True  # By default all the derivatives are stored
         ret.local_evaluation = True
         return ret
-
-    def doit(cls):
-        if aplaceholdernumberofy(arg == S.Zero for arg in cls.args):
-            return S.Zero
-        elif len(set(cls.args)) == 1:
-            return S.One
-        else:
-            return cls
 
     def expand(self, **hints):
         from sympy.core.function import _coeff_isneg
@@ -198,43 +212,6 @@ class CompactDerivative(Function, BasicDiscretisation, DerPrint):
     def _eval_expand_func(self, **hints):
         return self.expand()
 
-    def _discretise_derivative(cls, scheme, block, boundary=True):
-        """
-        TODO V2 documentation
-        This would return the discritized derivative of the
-        local object depending on the order of accuracy specified
-        Returns the formula for the derivative function, only first derivatives or homogeneous
-        derivatives of higher order are supported. The mixed derivatives will be handled impl-
-        citly while creating the kernels
-        :arg derivative: the derivative on which discretisation should be performed
-        :returns: the discritized derivative, in case of wall boundaries this is a Piecewise-
-        function
-        """
-        order = cls.order
-        form = 0
-        # Put the coefficients of first and second derivatives in a dictionary and use them
-        if cls.is_homogeneous:
-            dire = cls.get_direction[0]
-            weights = scheme._generate_weights(dire, order, block)
-            for no, p in enumerate(scheme.points):
-                expr = cls.args[0]
-                for req in (cls.required_datasets):
-                    loc = list(req.indices)
-                    loc[dire] = loc[dire] + p
-                    val = req.base[loc]
-                    expr = expr.replace(req, val)
-                form = form + weights[no]*expr
-            if form == 0:
-                raise ValueError("Central derivative formula is zero for %s" % cls)
-        else:
-            raise ValueError("The provided derivative is not homogeneous, %s" % cls)
-        if boundary:
-            form = cls.modify_boundary_formula(form, block)
-
-        delta = S.One/block.deltas[dire]**order
-        inv_delta = get_inverse_deltas(delta)
-        form = form*(inv_delta)
-        return form
 
     def modify_boundary_formula(cls, form, block):
         # Apply the boundary modifications
@@ -267,42 +244,30 @@ class CompactDerivative(Function, BasicDiscretisation, DerPrint):
 
 class Compact(Scheme):
 
-    """ Spatial discretisation scheme using central differences. """
+    """ Spatial discretisation scheme using central differences.
+    During the construction process, users can choose the proper linear solver by the linear_solver argument
+    """
 
-    def __init__(self, order):
+    def __init__(self, order, linear_solver):
         """ Set up the scheme.
 
         :arg int order: The order of accuracy of the scheme.
         """
-        Scheme.__init__(self, "CentralDerivative", order)
-        print("A Central scheme of order %d is being used." % order)
+        super().__init__("CompactScheme", order)
+
+        print("A compact scheme of order %d is being used." % order)
         self.schemetype = "Spatial"
         # Points for the spatial scheme
-        self.points = list(i for i in range(int(-order/2), int(order/2+1)))
         self.required_constituent_relations = {}
-        self.halotype = CentralHalos(order)
+        self.halotype = CompactHalos(order)
+        self.points = list(i for i in range(-1, 2))
+        kernel = open("compactscheme_kernel.h", "w")
+        wrap = open("compactscheme.cpp", "w")
+        kernel.write(WriteString(kernel_templates))
+        wrap.write(WriteString(wrap_templates))
+        kernel.close()
+        wrap.close()
         return
-
-    def _generate_weights(self, direction, order, block):
-        """Finite difference weights for homogeneous derivatives of given order."""
-        self.diffpoints = [i for i in self.points]
-        weights = finite_diff_weights(order, self.diffpoints, 0)
-        return weights[order][-1]
-
-    # def add_required_database(self, dbases):
-    #     # TODO V2: is it used??
-    #     self.required_database += flatten(list(dbases))
-    #     return
-
-    # @property
-    # def scheme_required_databases(self):
-    #     # TODO V2: is it used??
-    #     return set(self.required_database)
-
-    # def update_works(self, to_descritse, block):
-    #     # V2: Delete this?
-
-    #     return
 
     def set_halos(self, block):
         """Sets the halos of the scheme to the block, Max of the halos of the block are used for setting the range of
@@ -341,19 +306,19 @@ class Compact(Scheme):
             return self.required_constituent_relations
 
     def get_local_function(self, list_of_components):
-        centralderivatives_in_class = []
+        CompactDerivatives_in_class = []
         for c in list_of_components:
-            centralderivatives_in_class += list(c.atoms(CentralDerivative))
-        centralderivatives_in_class = list(set(centralderivatives_in_class))
-        return centralderivatives_in_class
+            CompactDerivatives_in_class += list(c.atoms(CompactDerivative))
+        CompactDerivatives_in_class = list(set(CompactDerivatives_in_class))
+        return CompactDerivatives_in_class
 
     def group_by_direction(self, eqs):
-        all_central_derivatives = []
+        all_compact_derivatives = []
         for eq in eqs:
-            all_central_derivatives += list(eq.atoms(CentralDerivative))
+            all_compact_derivatives += list(eq.atoms(CompactDerivative))
         all_central_derivatives = list(set(all_central_derivatives))
         grouped = {}
-        for cd in all_central_derivatives:
+        for cd in all_compact_derivatives:
             direction = cd.get_direction[0]
             if direction in grouped.keys():
                 grouped[direction] += [cd]
@@ -361,11 +326,11 @@ class Compact(Scheme):
                 grouped[direction] = [cd]
         return grouped
 
-    def update_range_of_constituent_relations(self, central_derivative, block):
-        direction = central_derivative.get_direction[0]
+    def update_range_of_constituent_relations(self, compact_derivative, block):
+        direction = compact_derivative.get_direction[0]
 
-        if central_derivative.required_datasets:
-            for v in central_derivative.required_datasets:
+        if compact_derivative.required_datasets:
+            for v in compact_derivative.required_datasets:
                 if v in self.required_constituent_relations.keys():
                     self.required_constituent_relations[v].set_halo_range(direction, 0, self.halotype)
                     self.required_constituent_relations[v].set_halo_range(direction, 1, self.halotype)
@@ -430,13 +395,14 @@ class Compact(Scheme):
                         v1 = v.subs(v.args[0], wk)
                     else:
                         v1 = v
-                    expr = OpenSBLIEq(v.work, v1._discretise_derivative(self, block))
-                    ker = Kernel(block)
-                    ker.add_equation(expr)
-                    ker.set_computation_name("Convective %s " % (v))
-                    ker.set_grid_range(block)
-                    local += [ker]
-                    subs_conv[v] = v.work
+                    #here we just need an equaitonof work and the terms to be discretised
+                    # expr = OpenSBLIEq(v.work, v1._discretise_derivative(self, #block))
+                    # ker = Kernel(block)
+                    # ker.add_equation(expr)
+                    # ker.set_computation_name("Convective %s " % (v))
+                    # ker.set_grid_range(block)
+                    # local += [ker]
+                    # subs_conv[v] = v.work
                 if ev_ker.equations:
                     local_evaluations_group[key] += [ev_ker]
                 function_expressions_group[key] = local
@@ -552,12 +518,12 @@ class Compact(Scheme):
                     other_terms[number] = Add(other_terms[number], expr)
         # Zero out aplaceholdernumberofy other derivatives in the containing terms and other terms
         for no, eq in enumerate(other_terms):
-            fns = [fn for fn in eq.atoms(Function) if not isinstance(fn, CentralDerivative)]
+            fns = [fn for fn in eq.atoms(Function) if not isinstance(fn, CompactDerivative)]
             substitutions = dict(zip(fns, [0]*len(fns)))
             other_terms[no] = other_terms[no].subs(substitutions)
 
         for no, eq in enumerate(containing_terms):
-            fns = [fn for fn in eq.atoms(Function) if not isinstance(fn, CentralDerivative)]
+            fns = [fn for fn in eq.atoms(Function) if not isinstance(fn, CompactDerivative)]
             substitutions = dict(zip(fns, [0]*len(fns)))
             containing_terms[no] = containing_terms[no].subs(substitutions)
         return containing_terms, other_terms
@@ -568,7 +534,7 @@ class Compact(Scheme):
         pot = postorder_traversal(central_deriv)
         inner_cds = []
         for p in pot:
-            if isinstance(p, CentralDerivative):
+            if isinstance(p, CompactDerivative):
                 inner_cds += [p]
             else:
                 continue

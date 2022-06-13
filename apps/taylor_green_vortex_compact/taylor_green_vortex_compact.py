@@ -3,9 +3,10 @@
 # Import all the functions from opensbli
 from opensbli import *
 import copy
-from opensbli.code_generation.opsc_implicit import OPSCImplicit
+from opensbli.code_generation.opsc_compact import OPSCCompact
 from opensbli.utilities.helperfunctions import substitute_simulation_parameters
 from opensbli.linear_solver.LinearSolver import TridiagonalSolver
+from opensbli.schemes.spatial.compact import Compact
 
 # Number of dimensions of the system to be solved
 ndim = 3
@@ -110,10 +111,13 @@ initial_equations = [parse_expr(eq, local_dict=local_dict) for eq in eqns]
 initial = GridBasedInitialisation()
 initial.add_equations(initial_equations)
 
+
 # Create a schemes dictionary to be used for discretisation
 schemes = {}
 # Central scheme for spatial discretisation and add to the schemes dictionary
 cent = Central(4)
+compact = Compact(4, trid)
+
 schemes[cent.name] = cent
 # RungeKutta scheme for temporal discretisation and add to the schemes dictionary
 rk = RungeKutta(3)
@@ -148,7 +152,7 @@ alg = TraditionalAlgorithmRK(block)
 SimulationDataType.set_datatype(Double)
 
 # Write the code for the algorithm
-OPSCImplicit(alg,trid)
+OPSCCompact(alg, trid)
 
 constants = ['Re', 'gama', 'Minf', 'Pr', 'dt', 'niter', 'block0np0', 'block0np1', 'block0np2', 'Delta0block0', 'Delta1block0', 'Delta2block0']
 values = ['1600.0', '1.4', '0.1', '0.71', '0.003385', '5909', '64', '64', '64', '2*M_PI/block0np0', '2*M_PI/block0np1', '2*M_PI/block0np2']
