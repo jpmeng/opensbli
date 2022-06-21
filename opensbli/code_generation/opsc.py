@@ -185,6 +185,20 @@ def pow_to_constant(expr):
     rc.name = orig_name  # change it back to the original name of Rational counter
     return expr
 
+class ACCCodePrinter(OPSCCodePrinter):
+
+    """ Prints OPSC code in the new ACC template fashion"""
+
+    def _print_DataSet(self, expr):
+        """ Prints the OpenSBLI dataset in the OPS format with the access numbers provided.
+        Access numbers are updated for each kernel, see writing kernel in the OPSC class. """
+        base = expr.base
+        if self.dataset_accs_dictionary[base]:
+            indices = expr.get_grid_indices
+            out = "%s(%s)" % (self._print(base), ','.join([self._print(i) for i in indices]))
+            return out
+        else:
+            raise ValueError("Did not find the OPS Access for %s " % expr.base)
 
 def ccode(expr, settings={}):
     """ Create an OPSC code printer object and write out the expression as an OPSC code string.
@@ -207,6 +221,30 @@ def ccode(expr, settings={}):
         return code
     else:
         return OPSCCodePrinter(settings).doprint(expr)
+
+
+def ccodeAcc(expr, settings={}):
+    """ Create an OPSC code printer object and write out the expression as an OPSC code string.
+
+    :arg expr: The expression to translate into OPSC code.
+    :arg Indexed_accs: Indexed OPS_ACC accesses.
+    :arg constants: Constants that should be defined at the top of the OPSC code.
+    :returns: The expression in OPSC code.
+    :rtype: str."""
+    if isinstance(expr, Equality):
+        if 'rational' in settings.keys():
+            pass
+        else:
+            expr = pow_to_constant(expr)
+        code_print = ACCCodePrinter(settings)
+        code = code_print.doprint(expr.lhs) \
+            + ' = ' + ACCCodePrinter(settings).doprint(expr.rhs)
+        if isinstance(expr.lhs, GridVariable):
+            code = code
+        return code
+    else:
+        return ACCCodePrinter(settings).doprint(expr)
+
 
 
 class WriteString(object):

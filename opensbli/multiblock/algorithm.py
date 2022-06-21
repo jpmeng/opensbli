@@ -342,18 +342,18 @@ class Algorithm(object):
     @property
     def block_descriptions(self):
         return self._block_descriptions
-    
+
     @block_descriptions.setter
     def block_descriptions(self, blocks):
         if self.MultiBlock:
             for b in range(blocks.nblocks):
                 self._block_descriptions += [BlockDescription(blocks.get_block(b))]
         return
-    
+
     @property
     def defnintions_and_declarations(self):
         return self._def_decs
-    
+
     @defnintions_and_declarations.setter
     def defnintions_and_declarations(self, blocks):
         defdecs = DefDecs()
@@ -366,20 +366,20 @@ class Algorithm(object):
                 defdecs.add_components(b.block_stencils.values())
         self._def_decs = defdecs
         return
-    
+
     @property
     def nonsimulation_start(self):
         return self._nonsimulation_start
-    
+
     @nonsimulation_start.setter
     def nonsimulation_start(self, kernels):
         self._nonsimulation_start = kernels
         return
-    
+
     @property
     def nonsimulation_end(self):
         return self._nonsimulation_end
-    
+
     @nonsimulation_end.setter
     def nonsimulation_end(self, kernels):
         self._nonsimulation_start = kernels
@@ -434,16 +434,16 @@ class TraditionalAlgorithmRKMB(object):
 
     def comapre_no_sims(self, s1, s2):
         return cmp(s1.order, s2.order)
-    
+
     #@property
     #def spatial_kernels(self):
         #return self._spatial_kernels
-    
+
     #@spatial_kernels.setter
     #def spatial_kernels(self, block_no, kernels):
         #self._spatial_kernels[block_no] += kernels
         #return
-    
+
 
     def spatial_solution(self, blocks):
         """ Add the spatial kernels to the temporal solution i.e temporalscheme.solution
@@ -532,7 +532,7 @@ class TraditionalAlgorithmRKMB(object):
             self.prg.add_components(after_time)
         latex.close()
         return
-    
+
     def get_io_mb(self, blocks, before_time, in_time, after_time, temporal_iteration):
         # TODO
         for block_number in range(blocks.nblocks):
@@ -560,7 +560,7 @@ class TraditionalAlgorithmRKMB(object):
                         in_time += [cond]
                     else:
                         raise NotImplementedError("In Nonsimulation equations")
-        return 
+        return
 
     def add_timers(self, components):
         timer = Timers(self.ntimers)

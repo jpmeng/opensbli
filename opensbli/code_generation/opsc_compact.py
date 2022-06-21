@@ -11,7 +11,7 @@ from sympy import Symbol, flatten
 from opensbli.core.grid import GridVariable
 from opensbli.core.datatypes import SimulationDataType
 from sympy import Pow, Idx, pprint, count_ops
-from opensbli.code_generation.opsc import OPSC, WriteString, OPSCCodePrinter, OPSAccess, ccode, indent_code
+from opensbli.code_generation.opsc import OPSC, WriteString, ACCCodePrinter, OPSAccess, ccodeAcc, indent_code
 from opensbli.linear_solver.LinearSolver import LinearSolver
 import os
 import logging
@@ -25,6 +25,9 @@ class OPSCCompact(OPSC):
         :arg bool operation_count: If True, prints the number of arithmetic operations per kernel.
         :arg int OPS_diagnostics: OPS performance diagnostics. The default of 1 provides no kernel-based timing output
         A value of 5 gives a kernel breakdown of computational kernel and MPI exchange time."""
+
+    ## This revision is for the new OPS ACC template call
+    ops_headers = {'input': "const %s &%s", 'output': '%s &%s', 'inout': '%s &%s'}
 
     # Revised
     def __init__(self, algorithm, LinearSolver, operation_count=False, OPS_diagnostics=1):
@@ -54,14 +57,15 @@ class OPSCCompact(OPSC):
         return
 
     def kernel_header(self, tuple_list):
+        """Function to generate a kernel function head compatible to the new OPS ACC template"""
         code = []
         dtype = SimulationDataType.opsc()
         for key, val in (tuple_list):
             # if any of the list has the datatype then use the data type
             if hasattr(key, "datatype") and key.datatype:
-                code += [self.ops_headers[val] % (key.datatype.opsc(), key)]
+                code += [self.ops_headers[val] % ("ACC<"+key.datatype.opsc()+">", key)]
             else:
-                code += [self.ops_headers[val] % (dtype, key)]
+                code += [self.ops_headers[val] % ("ACC<"+dtype+">", key)]
         code = ', '.join(code)
         return code
 
@@ -95,39 +99,40 @@ class OPSCCompact(OPSC):
         # print header_dictionary
         code = ["void %s(" % kernel.kernelname + self.kernel_header(header_dictionary) + other_inputs + ')' + '\n{']
         ops_accs = [OPSAccess(no) for no in range(len(all_dataset_inps))]
-        OPSCCodePrinter.dataset_accs_dictionary = dict(zip(all_dataset_inps, ops_accs))
+        ACCCodePrinter.dataset_accs_dictionary = dict(zip(all_dataset_inps, ops_accs))
+
         # Find all the grid variables and declare them at the top
         gridvariables = set()
         out = []
         for eq in kernel.equations:
             gridvariables = gridvariables.union(eq.atoms(GridVariable))
             if isinstance(eq, Equality):
-                out += [ccode(eq, settings={'kernel': True}) + ';\n']
+                out += [ccodeAcc(eq, settings={'kernel': True}) + ';\n']
             elif isinstance(eq, GroupedPiecewise):
                 for i, (expr, condition) in enumerate(eq.args):
                     if i == 0:
-                        out += ['if (%s)' % ccode(condition, settings={'kernel': True}) + '{\n']
+                        out += ['if (%s)' % ccodeAcc(condition, settings={'kernel': True}) + '{\n']
                         if is_sequence(expr):
                             for eqn in expr:
-                                out += [ccode(eqn, settings={'kernel': True}) + ';\n']
+                                out += [ccodeAcc(eqn, settings={'kernel': True}) + ';\n']
                         else:
-                            out += [ccode(expr, settings={'kernel': True}) + ';\n']
+                            out += [ccodeAcc(expr, settings={'kernel': True}) + ';\n']
                         out += ['}\n']
                     elif condition != True:
-                        out += ['else if (%s)' % ccode(condition, settings={'kernel': True}) + '{\n']
+                        out += ['else if (%s)' % ccodeAcc(condition, settings={'kernel': True}) + '{\n']
                         if is_sequence(expr):
                             for eqn in expr:
-                                out += [ccode(eqn, settings={'kernel': True}) + ';\n']
+                                out += [ccodeAcc(eqn, settings={'kernel': True}) + ';\n']
                         else:
-                            out += [ccode(expr, settings={'kernel': True}) + ';\n']
+                            out += [ccodeAcc(expr, settings={'kernel': True}) + ';\n']
                         out += ['}\n']
                     else:
                         out += ['else{\n']
                         if is_sequence(expr):
                             for eqn in expr:
-                                out += [ccode(eqn, settings={'kernel': True}) + ';\n']
+                                out += [ccodeAcc(eqn, settings={'kernel': True}) + ';\n']
                         else:
-                            out += [ccode(expr, settings={'kernel': True}) + ';\n']
+                            out += [ccodeAcc(expr, settings={'kernel': True}) + ';\n']
                         out += ['}\n']
             else:
                 pprint(eq)
@@ -135,11 +140,12 @@ class OPSCCompact(OPSC):
         for gv in gridvariables:
             code += ["%s %s = 0.0;" % (SimulationDataType.opsc(), str(gv))]
         code += out + ['}']  # close Kernel
-        OPSCCodePrinter.dataset_accs_dictionary = {}
+        ACCCodePrinter.dataset_accs_dictionary = {}
         return code
 
+    ## This function will not be needed for the compact scheme
     def write_kernels(self, algorithm):
-        """ A function to write out the kernels header file definining all of the computations to be performed."""
+        """ A function to write out the kernels header file defining all of the computations to be performed."""
         from opensbli.core.kernel import Kernel
         kernels = self.loop_alg(algorithm, Kernel)
         # Count the number of operations per kernel
@@ -370,7 +376,7 @@ class OPSCCompact(OPSC):
         # Fix spacing on constant declarations %s=%s
         if isinstance(c, ConstantObject):
             if not isinstance(c.value, str):
-                return [WriteString("%s = %s;" % (str(c), ccode(c.value, settings={'rational': True})))]
+                return [WriteString("%s = %s;" % (str(c), ccodeAcc(c.value, settings={'rational': True})))]
             else:
                 return [WriteString("%s=%s;" % (str(c), c.value))]
         elif isinstance(c, ConstantIndexed):
@@ -378,7 +384,7 @@ class OPSCCompact(OPSC):
             if c.value:
                 if len(c.shape) == 1:
                     if c.inline_array:
-                        values = [ccode(c.value[i], settings={'rational': True}) for i in range(c.shape[0])]
+                        values = [ccodeAcc(c.value[i], settings={'rational': True}) for i in range(c.shape[0])]
                         return [WriteString("%s %s[] = {%s};" % (c.datatype.opsc(), c.base.label, ', '.join(values)))]
                     else:
                         indices = ''
@@ -386,7 +392,7 @@ class OPSCCompact(OPSC):
                             indices = indices + '[%d]' % s
                         out += [WriteString("%s %s%s;" % (c.base.label, indices))]
                         for i in range(c.shape[0]):
-                            out += [WriteString("%s[%d] = %s;" % (str(c.base.label), i, ccode(c.value[i], settings={'rational': True})))]
+                            out += [WriteString("%s[%d] = %s;" % (str(c.base.label), i, ccodeAcc(c.value[i], settings={'rational': True})))]
                         return out
                 else:
                     raise NotImplementedError("Indexed constant declaration is done for only one ")
