@@ -549,6 +549,22 @@ class CentralDerivative(Function, BasicDiscretisation, DerPrint):
         return transformed_der
 
 
+class CompactDerivative(Function, BasicDiscretisation, DerPrint):
+    """wrapper class to represent derivatives using the compact scheme
+    """
+    def __new__(cls, expr, *args):
+        #args = tuple(flatten([expr] + list(args)))
+        args = flatten([expr] + list(args))
+        ret = super(CompactDerivative, cls).__new__(cls, *args, evaluate=False)
+        ret.store = True  # By default all the derivatives are stored
+        ret.local_evaluation = True
+        #ret.settings = settings
+        return ret
+
+    @property
+    def simple_name(cls):
+        return "%s" % ("CT")
+
 class WenoDerivative(Function, BasicDiscretisation, DerPrint):
 
     def __new__(cls, expr, *args, **settings):
@@ -748,6 +764,6 @@ class MetricDerivative(Function, BasicDiscretisation):
         return ret
 
 
-localfuncs = (MetricDerivative, KD, CentralDerivative, WenoDerivative, TenoDerivative, TemporalDerivative, LC, Dot)
+localfuncs = (MetricDerivative, KD, CentralDerivative, WenoDerivative, TenoDerivative, TemporalDerivative, LC, Dot, CompactDerivative)
 simplifying_funcs = (KD, LC, Dot)
 local_objects = (DataObject, CoordinateObject, ConstantObject, EinsteinTerm)
