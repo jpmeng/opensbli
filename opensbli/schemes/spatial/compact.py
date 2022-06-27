@@ -7,7 +7,7 @@
 from sympy import IndexedBase, Symbol, Rational, solve, interpolating_poly, integrate, Abs, Float, flatten, S, postorder_traversal, Function, flatten, S, factor
 from sympy.core import Add, Mul
 from opensbli.code_generation.opsc import WriteString
-from opensbli.core.opensblifunctions import Function, BasicDiscretisation, DerPrint
+from opensbli.core.opensblifunctions import Function, BasicDiscretisation, DerPrint,CompactDerivative
 from opensbli.core.opensbliobjects import ConstantObject, DataSet, CoordinateObject
 from opensbli.equation_types.opensbliequations import SimulationEquations, OpenSBLIEq, NonSimulationEquations
 from opensbli.core.grid import GridVariable
@@ -15,9 +15,25 @@ from .scheme import Scheme
 from sympy import horner, pprint
 from opensbli.schemes.spatial.shock_capturing import ShockCapturing, LLFCharacteristic
 
-from opensbli.core.kernel import Kernel
+from opensbli.core.kernel import Kernel, ImplicitKernel
 
 from builtins import super
+
+from opensbli.utilities.helperfunctions import Debug
+
+## TODO we need to write the template code for the second-order derivative
+
+## TODO for multi-block application we need to also modify block name
+varible_template="""ops_dat name_place;
+{
+    int halo_p[] = {halo_place, halo_place, halo_place};
+    int halo_m[] = {-halo_place, -halo_place, -halo_place};
+    int size[] = {block0np0, block0np1, block0np2};
+    int base[] = {0, 0, 0};
+    double* value = NULL;
+    name_place = ops_decl_dat(opensbliblock00, 1, size, base, halo_m, halo_p, value, "double", "name_place");
+}
+"""
 
 kernel_derivative_x_template = """
 void PreprocessX4thCompact(const ACC<double> &u, ACC<double> &a, ACC<double> &b,
@@ -170,9 +186,12 @@ class CompactHalos(object):
     """Number of halo points required for the compact scheme. Assumes they are the same in all dimensions.
   """
 
-    def __init__(self, order):
+    def __init__(self, order=4):
         # we assume that compact schemes always requires one halo by default
-        self.halos = [-1, 1]
+        if order==4:
+            self.halos = [-1, 1]
+        if order==6:
+            self.halos = [-2, 2]
         return
 
     def get_halos(self, side):
@@ -182,69 +201,12 @@ class CompactHalos(object):
         return "CompactHalos"
 
 
-class CompactDerivative(Function, BasicDiscretisation, DerPrint):
-    """wrapper class to represent derivatives using the compact scheme
-    """
-    def __new__(cls, expr, *args):
-        args = tuple(flatten([expr] + list(args)))
-        ret = super().__new__(cls, *args, evaluate=False)
-        ret.store = True  # By default all the derivatives are stored
-        ret.local_evaluation = True
-        return ret
 
-    def expand(self, **hints):
-        from sympy.core.function import _coeff_isneg
-        ders = self.args[1:]
-        rets = 0
-        arg = self.args[0]
-        if arg.is_Add:
-            aargs = list(arg.expand(deep=True).args)
-            for i, ai in enumerate(aargs):
-                if ai.is_Mul and _coeff_isneg(ai):
-                    ai = ai*-S.One
-                    rets -= self.func(ai, *ders)
-                else:
-                    rets += self.func(ai, *ders)
-            return rets
-        else:
-            return self
-
-    def _eval_expand_func(self, **hints):
-        return self.expand()
-
-
-    def modify_boundary_formula(cls, form, block):
-        # Apply the boundary modifications
-        modifications = block.check_modify_central()
-        dire = cls.get_direction[0]
-        if dire in modifications:
-            boundary_mods = [k for k in modifications[dire] if k]
-            expression_condition_pairs = []
-            for b in boundary_mods:
-                expression_condition_pairs += b.modification_scheme.expr_cond_pairs(cls.args[0], b.direction, b.side, cls.order, block)
-            expression_condition_pairs += [ExprCondPair(form, True)]
-            form = Piecewise(*expression_condition_pairs, **{'evaluate': False})
-        return form
-
-    @property
-    def simple_name(cls):
-        return "%s" % ("CD")
-
-    def classical_strong_differentiabilty_transformation(cls, metric):
-        direction = cls.get_direction
-        if cls.order == 1:
-            metric_der = metric.classical_strong_differentiabilty_transformation[direction[0]]
-            transformed_der = metric_der.subs(metric.general_function, cls.args[0])
-        elif cls.order == 2:
-            metric.sd_used = True
-            metric_der = metric.classical_strong_differentiabilty_transformation_sd[tuple(cls.get_direction)]
-            transformed_der = metric_der.subs(metric.general_function, cls.args[0])
-        return transformed_der
-
-
+#TODO There are in fact a family of compact schemes such as we many need
+# to overide the init method
 class Compact(Scheme):
 
-    """ Spatial discretisation scheme using central differences.
+    """ Spatial discretisation scheme using compact differences.
     During the construction process, users can choose the proper linear solver by the linear_solver argument
     """
 
@@ -263,8 +225,20 @@ class Compact(Scheme):
         self.points = list(i for i in range(-1, 2))
         kernel = open("compactscheme_kernel.h", "w")
         wrap = open("compactscheme.cpp", "w")
-        kernel.write(WriteString(kernel_templates))
-        wrap.write(WriteString(wrap_templates))
+        for kernelString in kernel_templates:
+            kernel.write(kernelString)
+        aString = varible_template.replace("name_place","a");
+        aString = aString.replace("halo_place",str(self.halotype.get_halos(1)))
+        wrap.write(aString)
+        bString = varible_template.replace("name_place","b");
+        bString = bString.replace("halo_place",str(self.halotype.get_halos(1)))
+        wrap.write(bString)
+        cString = varible_template.replace("name_place","c");
+        cString = cString.replace("halo_place",str(self.halotype.get_halos(1)))
+        wrap.write(cString)
+        for wrapString in wrap_templates:
+            wrap.write(wrapString)
+        aString = varible_template.replace("name_place","a");
         kernel.close()
         wrap.close()
         return
@@ -283,6 +257,7 @@ class Compact(Scheme):
         if isinstance(type_of_eq, SimulationEquations):
             """ Simulation equations are always solved as sbli_rhs_discretisation as of now
             # TODO V2 change the name"""
+            Debug("TypeEq=",type_of_eq)
             self.sbli_rhs_discretisation(type_of_eq, block)
             return self.required_constituent_relations
         else:
@@ -305,6 +280,36 @@ class Compact(Scheme):
                 pass
             return self.required_constituent_relations
 
+
+    # def discretise(self, type_of_eq, block):
+    #     """Discretisation application."""
+    #     self.set_halos(block)
+    #     if isinstance(type_of_eq, SimulationEquations):
+    #         """ Simulation equations are always solved as sbli_rhs_discretisation as of now
+    #         # TODO V2 change the name"""
+    #         Debug("TypeEq=",type_of_eq)
+    #         self.sbli_rhs_discretisation(type_of_eq, block)
+    #         return self.required_constituent_relations
+    #     else:
+    #         block.store_work_index  # Store work
+    #         local_kernels, discretised_eq = self.general_discretisation(type_of_eq.equations, block, name=type_of_eq.__class__.__name__)
+    #         block.reset_work_to_stored  # Reset
+    #         if discretised_eq:
+    #             for ker in local_kernels:
+    #                 eval_ker = local_kernels[ker]
+    #                 type_of_eq.Kernels += [eval_ker]
+
+    #             discretisation_kernel = Kernel(block, computation_name="%s evaluation" % type_of_eq.__class__.__name__)
+    #             discretisation_kernel.set_grid_range(block)
+    #             for eq in discretised_eq:
+    #                 discretisation_kernel.add_equation(eq)
+    #             discretisation_kernel.update_block_datasets(block)
+    #             type_of_eq.Kernels += [discretisation_kernel]
+    #             return self.required_constituent_relations
+    #         else:
+    #             pass
+    #         return self.required_constituent_relations
+
     def get_local_function(self, list_of_components):
         CompactDerivatives_in_class = []
         for c in list_of_components:
@@ -316,7 +321,7 @@ class Compact(Scheme):
         all_compact_derivatives = []
         for eq in eqs:
             all_compact_derivatives += list(eq.atoms(CompactDerivative))
-        all_central_derivatives = list(set(all_central_derivatives))
+        all_compact_derivatives = list(set(all_compact_derivatives))
         grouped = {}
         for cd in all_compact_derivatives:
             direction = cd.get_direction[0]
@@ -326,6 +331,7 @@ class Compact(Scheme):
                 grouped[direction] = [cd]
         return grouped
 
+    ## TODO constituent_relations should not have derivative, using kernel
     def update_range_of_constituent_relations(self, compact_derivative, block):
         direction = compact_derivative.get_direction[0]
 
@@ -359,12 +365,17 @@ class Compact(Scheme):
         This is the discretisation for the compressible Navier-Stokes equations by classifying them based on Reynolds number
         # TODO get the parameters dynamically from the problem script
         """
+        Debug("Start debug") ## TODO debug
         equations = flatten(type_of_eq.equations)
+        Debug("equations",equations) ## TODO Debug
         residual_arrays = [eq.residual for eq in equations]
         equations = [e._sanitise_equation for e in equations]
         classify_parameter = ConstantObject("Re")
         self.required_constituent_relations = {}
         viscous, convective = self.classify_equations_on_parameter(equations, classify_parameter)
+        Debug("residual_arrays",residual_arrays)
+        Debug("convective",convective)
+        Debug("viscous=",viscous)
         kernels = []
         convective_grouped = self.group_by_direction(convective)
         if convective_grouped:
@@ -395,8 +406,8 @@ class Compact(Scheme):
                         v1 = v.subs(v.args[0], wk)
                     else:
                         v1 = v
-                    #here we just need an equaitonof work and the terms to be discretised
-                    # expr = OpenSBLIEq(v.work, v1._discretise_derivative(self, #block))
+                    #here we just need an equation of work and the terms to be discretised
+                    # expr = OpenSBLIEq(v.work, v1._discretise_derivative(self,block))
                     # ker = Kernel(block)
                     # ker.add_equation(expr)
                     # ker.set_computation_name("Convective %s " % (v))
@@ -423,7 +434,7 @@ class Compact(Scheme):
             kernels += [conv_residual_kernel]
         # reset the work index of blocks
         block.reset_work_index
-        # Discretise the viscous fluxes. This is straight forward as we need not modify aplaceholdernumberofything
+        # Discretise the viscous fluxes. This is straight forward as we need not modify any thing
         viscous_kernels, viscous_discretised = self.general_discretisation(viscous, block, name="Viscous")
         self.check_constituent_relations(block, viscous)
         if viscous_kernels:
@@ -469,27 +480,28 @@ class Compact(Scheme):
 
     def general_discretisation(self, equations, block, name=None):
         """
-        This discretises the central derivatives, without aplaceholdernumberofy special treatment of grouping them
+        This discretises the central derivatives, without a special treatment of grouping them
         """
         discretized_equations = flatten(equations)[:]
-        cds = self.get_local_function(flatten(equations))
-        if cds:
+        cts = self.get_local_function(flatten(equations))
+        Debug("cts=",cts)
+        if cts:
             local_kernels = {}
             if block.store_derivatives:
-                for der in cds:
+                for der in cts:
                     der.update_work(block)
-                    ker = Kernel(block)
+                    ker = ImplicitKernel(block)
                     if name:
                         ker.set_computation_name("%s %s " % (name, der))
                     local_kernels[der] = ker  # Reverted back
             # create a dictionary of works and kernels
             work_arry_subs = {}
-            for der in cds:
+            for der in cts:
                 self.update_range_of_constituent_relations(der, block)
                 expr, local_kernels = self.traverse(der, local_kernels, block)
-                expr_discretised = OpenSBLIEq(der.work, factor(expr._discretise_derivative(self, block)))
+                work_equation = OpenSBLIEq(der.work, expr)
                 work_arry_subs[expr] = der.work
-                local_kernels[der].add_equation(expr_discretised)
+                local_kernels[der].add_equation(work_equation)
                 local_kernels[der].set_grid_range(block)
             for no, c in enumerate(discretized_equations):
                 discretized_equations[no] = discretized_equations[no].subs(work_arry_subs)
@@ -556,3 +568,4 @@ class Compact(Scheme):
                 else:
                     raise ValueError("Could not classify this")
         return expr, kernel_dictionary
+

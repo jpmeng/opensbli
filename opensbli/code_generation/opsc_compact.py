@@ -13,6 +13,7 @@ from opensbli.core.datatypes import SimulationDataType
 from sympy import Pow, Idx, pprint, count_ops
 from opensbli.code_generation.opsc import OPSC, WriteString, ACCCodePrinter, OPSAccess, ccodeAcc, indent_code
 from opensbli.linear_solver.LinearSolver import LinearSolver
+from opensbli.utilities.helperfunctions import Debug
 import os
 import logging
 LOG = logging.getLogger(__name__)
@@ -26,7 +27,7 @@ class OPSCCompact(OPSC):
         :arg int OPS_diagnostics: OPS performance diagnostics. The default of 1 provides no kernel-based timing output
         A value of 5 gives a kernel breakdown of computational kernel and MPI exchange time."""
 
-    ## This revision is for the new OPS ACC template call
+    # This revision is for the new OPS ACC template call
     ops_headers = {'input': "const %s &%s", 'output': '%s &%s', 'inout': '%s &%s'}
 
     # Revised
@@ -44,7 +45,6 @@ class OPSCCompact(OPSC):
         else:
             self.monitoring_output_file = False
         # First write the kernels, with this we will have the Rational constants to declare
-        self.write_kernels(algorithm)
         def_decs = self.opsc_def_decs(algorithm)
         end = self.ops_exit()
         algorithm.prg.components = def_decs + algorithm.prg.components + end
@@ -70,7 +70,7 @@ class OPSCCompact(OPSC):
         return code
 
     def kernel_computation_opsc(self, kernel):
-        """ Function to write the out the contents of each computational kernel."""
+        """ Function to write the out the contents of each computational kernel function."""
         ins = kernel.rhs_datasetbases
         outs = kernel.lhs_datasetbases
         inouts = ins.intersection(outs)
@@ -142,36 +142,6 @@ class OPSCCompact(OPSC):
         code += out + ['}']  # close Kernel
         ACCCodePrinter.dataset_accs_dictionary = {}
         return code
-
-    ## This function will not be needed for the compact scheme
-    def write_kernels(self, algorithm):
-        """ A function to write out the kernels header file defining all of the computations to be performed."""
-        from opensbli.core.kernel import Kernel
-        kernels = self.loop_alg(algorithm, Kernel)
-        # Count the number of operations per kernel
-        if self.operation_count:
-            total = 0
-            for k in kernels:
-                n_operations = count_ops(k.equations)
-                total += n_operations
-                print([k.kernel_no, k.computation_name, 'operations: %d' % n_operations])
-            print("Total operation count is: %d" % total)
-
-        files = [open('%s_kernels.h' % b.block_name, 'w') for b in algorithm.block_descriptions]
-        for i, f in enumerate(files):
-            name = ('%s_kernel_H' % algorithm.block_descriptions[i].block_name).upper()
-            f.write('#ifndef %s\n' % name)
-            f.write('#define %s\n' % name)
-        for k in kernels:
-            out = self.kernel_computation_opsc(k) + ['\n']
-            out = indent_code(out)
-            out = self.wrap_long_lines(out)
-            files[k.block_number].write('\n'.join(out))
-        for f in files:
-            f.write("#endif\n")
-        files = [f.close() for f in files]
-        return
-
     # revised
     def ops_exit(self):
         """ Exits the OPS program with optional kernel-based timing output."""
@@ -200,7 +170,7 @@ class OPSCCompact(OPSC):
                     out += ["%s %s%s;" % (d.datatype.opsc(), d.base.label, indices)]
         for b in algorithm.block_descriptions:
             out += ['#define OPS_%dD' % b.ndim]
-        out += ['#include \"ops_seq.h\"']
+        out += ['#include \"ops_seq_v2.h\"']
         for b in algorithm.block_descriptions:
             out += ['#include \"%s_kernels.h\"' % b.block_name]
         # Include optional simulation monitoring reductions file
@@ -449,8 +419,7 @@ class OPSCCompact(OPSC):
             dtype = SimulationDataType.dtype()
 
         if dset.read_from_hdf5:
-            temp = '%s = ops_decl_dat_hdf5(%s, 1, \"%s\", \"%s\", \"%s\");' % (dset,
-                                                                               dset.block_name, dtype.opsc(), dset, dset.input_file_name)
+            temp = '%s = ops_decl_dat_hdf5(%s, 1, \"%s\", \"%s\", \"%s\");' % (dset,dset.block_name, dtype.opsc(), dset, dset.input_file_name)
             out += [WriteString(temp)]
         else:
             # Residual and time-advance arrays do not require halos
