@@ -9,6 +9,9 @@ import h5py
 from opensbli.code_generation.opsc import rc
 from sympy import pprint
 
+# Anther name for the print function, convenient for debug.
+def Debug(*args):
+    print(args)
 
 def get_min_max_halo_values(halos):
     halo_m = []
