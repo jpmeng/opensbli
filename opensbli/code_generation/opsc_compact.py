@@ -45,6 +45,7 @@ class OPSCCompact(OPSC):
         else:
             self.monitoring_output_file = False
         # First write the kernels, with this we will have the Rational constants to declare
+        self.write_kernels(algorithm)
         def_decs = self.opsc_def_decs(algorithm)
         end = self.ops_exit()
         algorithm.prg.components = def_decs + algorithm.prg.components + end
@@ -142,6 +143,36 @@ class OPSCCompact(OPSC):
         code += out + ['}']  # close Kernel
         ACCCodePrinter.dataset_accs_dictionary = {}
         return code
+
+    def write_kernels(self, algorithm):
+        """ A function to write out the kernels header file definining all of the computations to be performed."""
+        from opensbli.core.kernel import Kernel
+        from opensbli.core.kernel import ImplicitKernel
+        kernels = self.loop_alg(algorithm, Kernel)
+        # Count the number of operations per kernel
+        if self.operation_count:
+            total = 0
+            for k in kernels:
+                n_operations = count_ops(k.equations)
+                total += n_operations
+                print([k.kernel_no, k.computation_name, 'operations: %d' % n_operations])
+            print("Total operation count is: %d" % total)
+
+        files = [open('%s_kernels.h' % b.block_name, 'w') for b in algorithm.block_descriptions]
+        for i, f in enumerate(files):
+            name = ('%s_kernel_H' % algorithm.block_descriptions[i].block_name).upper()
+            f.write('#ifndef %s\n' % name)
+            f.write('#define %s\n' % name)
+        for k in kernels:
+            if not isinstance(k,ImplicitKernel):
+                out = self.kernel_computation_opsc(k) + ['\n']
+                out = indent_code(out)
+                out = self.wrap_long_lines(out)
+                files[k.block_number].write('\n'.join(out))
+        for f in files:
+            f.write("#endif\n")
+        files = [f.close() for f in files]
+        return
     # revised
     def ops_exit(self):
         """ Exits the OPS program with optional kernel-based timing output."""
