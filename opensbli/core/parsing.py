@@ -4,16 +4,21 @@ from sympy import pprint, flatten, Function, Derivative, Equality, Symbol, Ratio
 from sympy.core.function import AppliedUndef
 from opensbli.core.opensbliobjects import ConstantObject, MetricObject, CoordinateObject, DataSet, DataObject, EinsteinTerm
 from opensbli.core.opensblifunctions import WenoDerivative, CentralDerivative, TenoDerivative, MetricDerivative, TemporalDerivative,\
-    EinsteinStructure, expand_free_indices
+    EinsteinStructure, expand_free_indices, CompactDerivative
 from sympy.parsing.sympy_parser import parse_expr, standard_transformations
 from opensbli.equation_types.opensbliequations import OpenSBLIEq
 
 from sympy.parsing.sympy_tokenize import NAME, OP
+#from opensbli.schemes.spatial.compact import CompactDerivative
+
+from opensbli.utilities.helperfunctions import Debug
 
 LOG = logging.getLogger(__name__)
 LOCAL_FUNCTIONS = []
 
-classdict = {Symbol('Central'): CentralDerivative, Symbol('Temporal'): TemporalDerivative, Symbol('Weno'): WenoDerivative, Symbol('Metric'): MetricDerivative, Symbol('Teno'): TenoDerivative}
+classdict = {Symbol('Central'): CentralDerivative, Symbol('Temporal'): TemporalDerivative, Symbol('Weno'): WenoDerivative, Symbol('Metric'): MetricDerivative, Symbol('Teno'): TenoDerivative, Symbol('Compact'): CompactDerivative}
+
+#
 
 
 class ParsingSchemes(object):
@@ -158,6 +163,7 @@ class Der(AppliedUndef, ParsingSchemes):
         for fn in fns:
             substits[fn] = fn(*fndeps)
             revertback[fn(*fndeps)] = fn
+
         expr = cls.args[0]
         expr = expr.subs(substits)
         pot = postorder_traversal(expr)
@@ -165,6 +171,7 @@ class Der(AppliedUndef, ParsingSchemes):
         the variables and for applying transformation of equations we don't
         want them to be sorted"""
         order_of_diff = []
+
         for p in pot:
             if isinstance(p, localfuncs):
                 # Store the order
@@ -173,6 +180,7 @@ class Der(AppliedUndef, ParsingSchemes):
             else:
                 continue
         # Store the order
+
         order_of_diff += cls.args[1:-1]
         expr = expr.diff(*cls.args[1:-1])
         expr = expr.doit()
@@ -399,11 +407,13 @@ class EinsteinEquation(EinsteinStructure):
         exec_('from opensbli.core import *', local_dict)
         local_dict.update({'coordinate': coordinate_symbol, 'time': 't'})
         local_dict.update(constant_dictionary)
-        # Parse the equation.
+        ## TODO there might be a problem for expanding new scheme
         self.parsed = parse_expr(self.original, local_dict, tuple([convert_coordinate])+standard_transformations, evaluate=False)
+        # Parse the equation.
         # Perform substitutions, if any.
         if substitutions:
             for sub in substitutions:
+                Debug("sub=",sub)
                 temp = parse_expr(sub, local_dict, tuple([convert_coordinate])+standard_transformations, evaluate=False)
                 self.parsed = self.parsed.xreplace({temp.lhs: temp.rhs})
         pot = preorder_traversal(self.parsed)
