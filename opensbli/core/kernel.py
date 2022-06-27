@@ -12,6 +12,7 @@ from opensbli.core.grid import Grididx
 from opensbli.core.datatypes import SimulationDataType
 from opensbli.utilities.helperfunctions import get_min_max_halo_values, dataset_attributes
 from opensbli.core.datatypes import Int
+from opensbli.utilities.helperfunctions import Debug
 import copy
 
 _known_equation_types = (GroupedPiecewise, OpenSBLIEq)
@@ -323,3 +324,35 @@ class Kernel(object):
             else:
                 self.stencil_names[dset].add(block.block_stencils[stencil].name)
         return
+
+
+class ImplicitKernel(Kernel):
+    """ A computational kernel, which will be executed over all the grid points in parallel."""
+    mulfactor = {0: 1, 1: 1}
+    opsc_access = {'ins': "OPS_READ", "outs": "OPS_WRITE", "inouts": "OPS_RW"}
+
+
+    @property
+    def opsc_code(self):
+        """ Creates the OPSC code for a kernel."""
+        block_name = self.block_name
+        name = self.kernelname
+        ins = self.rhs_datasetbases
+        outs = self.lhs_datasetbases
+        inouts = ins.intersection(outs)
+        ins = ins.difference(inouts)
+        outs = outs.difference(inouts)
+        if len(self.equations) == 0:
+            raise ValueError("Kernel %s does not have any equations." % self.computation_name)
+        # range_of_eval = self.total_range()
+        dtype = Int().opsc()
+        # iter_name = "iteration_range_%d_block%d" % (self.kernel_no, self.block_number)
+        # iter_name_code = ['%s %s[] = {%s};' % (dtype, iter_name, ', '.join([str(s) for s in flatten(range_of_eval)]))]
+        # Debug("IterName=",iter_name_code)
+        code=[]
+        code += ["CompactDerivative( "+str(list(ins)[0])+", "+str(list(outs)[0])+" );"]
+
+        # TODO check the dtype from the dataset
+        sim_dtype = SimulationDataType.opsc()
+        return code
+
