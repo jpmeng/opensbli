@@ -407,13 +407,13 @@ class Compact(Scheme):
                     else:
                         v1 = v
                     #here we just need an equation of work and the terms to be discretised
-                    # expr = OpenSBLIEq(v.work, v1._discretise_derivative(self,block))
-                    # ker = Kernel(block)
-                    # ker.add_equation(expr)
-                    # ker.set_computation_name("Convective %s " % (v))
-                    # ker.set_grid_range(block)
-                    # local += [ker]
-                    # subs_conv[v] = v.work
+                    expr = OpenSBLIEq(v.work, v1)
+                    ker = ImplicitKernel(block)
+                    ker.add_equation(expr)
+                    ker.set_computation_name("Convective %s " % (v))
+                    ker.set_grid_range(block)
+                    local += [ker]
+                    subs_conv[v] = v.work
                 if ev_ker.equations:
                     local_evaluations_group[key] += [ev_ker]
                 function_expressions_group[key] = local
