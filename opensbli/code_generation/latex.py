@@ -140,6 +140,9 @@ class LatexWriter(LatexPrinter):
     def _print_TenoDerivative(self, expr):
         return r'\left. %s \right|_{{%s }}' % (self._print(Derivative(*expr.args)), "Teno")
 
+    def _print_CompactDerivative(self, expr):
+        return r'\left. %s \right|_{{%s }}' % (self._print(Derivative(*expr.args)), "CT")
+
     def _print_GroupedPiecewise(self, expr):
         out = r'\[= \left\{\begin{array}{lr} x(n), & \text{for } 0\leq n\leq 1\\ x(n-1), & \text{for } 0\leq n\leq 1\\ x(n-1), & \text{for } 0\leq n\leq 1\end{array}\right\} = xy\]'
         return out
