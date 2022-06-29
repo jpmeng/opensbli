@@ -8,7 +8,7 @@ from opensbli.core.opensbliobjects import DataSet, ConstantObject, DataSetBase, 
 from opensbli.core.opensblifunctions import TemporalDerivative
 from sympy import flatten, preorder_traversal
 from sympy import Equality, Function, pprint, srepr
-
+from opensbli.utilities.helperfunctions import Debug
 
 class Discretisation(object):
     """Contains the functions used in various equation classes of OpenSBLI, to perform
@@ -440,6 +440,33 @@ class SimulationEquations(Discretisation, Solution):
     def all_spatial_kernels(cls, block):
         return flatten([cls.sort_constituents(block)] + [cls.Kernels])
 
+class SimulationEquationsResidual(SimulationEquations):
+    """Class for the simulation equations. This performs the discretisation of the equations.
+
+    :param int order: priority in the algorithm if multiple simulation equations exitst
+    """
+
+    def __new__(cls, order=None, **kwargs):
+        ret = super(SimulationEquationsResidual, cls).__new__(cls)
+        if order:
+            ret.order = order
+        else:
+            ret.order = 0
+        ret.equations = []
+        ret.kwargs = kwargs
+        return ret
+
+    def create_residual_arrays(cls, block):
+        """Creates the residual datasets for each of the simulation equations.
+
+        :param SimulationBlock block: the block on which the equations are solved
+        :return: None """
+        for no, eq in enumerate(flatten(cls.equations)):
+            name=str(eq.lhs)
+            name=name.replace(" ","_")
+            if not hasattr(eq, 'residual'):
+                eq.residual = block.location_dataset('Residual_'+ name)
+        return
 
 class ConstituentRelations(Discretisation, Solution):
     """Class for the ConstituentRelations to performs the discretisation of the equations"""
