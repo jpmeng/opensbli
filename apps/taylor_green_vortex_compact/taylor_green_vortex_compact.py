@@ -4,24 +4,54 @@
 from opensbli import *
 import copy
 from opensbli.code_generation.opsc_compact import OPSCCompact
+from opensbli.equation_types.opensbliequations import SimulationEquationsResidualCR,ConstituentRelationsGradient
 from opensbli.utilities.helperfunctions import substitute_simulation_parameters
 from opensbli.linear_solver.LinearSolver import TridiagonalSolver
 from opensbli.schemes.spatial.compact import Compact
+from opensbli.code_generation.algorithm import TraditionalAlgorithmRKCR
+from opensbli.utilities.helperfunctions import Debug
+import sys
 
 # Number of dimensions of the system to be solved
 ndim = 3
+sc1 = "**{\'scheme\':\'Compact\'}"
 
+#sc1 = "**{\'scheme\':\'Teno\'}"
+# Define the compresible Navier-Stokes equations in Einstein notation.
+# mass = "Eq(Der(rho,t), - Conservative(rhou_j,x_j,%s))" % sc1
+
+# print(mass)
 # Define the compresible Navier-Stokes equations in Einstein notation, by default the scheme is Central no need to
 # Specify the schemes
-mass = "Eq(Der(rho,t), - Skew(rho*u_j,x_j))"
-momentum = "Eq(Der(rhou_i,t) , - Skew(rhou_i*u_j, x_j) - Der(p,x_i)  + Der(tau_i_j,x_j))"
-energy = "Eq(Der(rhoE,t), - Skew(rhoE*u_j,x_j) - Conservative(p*u_j,x_j) + Der(q_j,x_j) + Der(u_i*tau_i_j ,x_j))"
+
+
+# testeq= "Eq(Der(u_i,t), -u_j*Der(u_i,x_j)+Der(1.0/Re)*Der(u_i,x_j,x_j))"
+# if len(sys.argv)>1:
+#     testeq= "Eq(Der(u_i,t),  -u_j*Der(u_i,x_j,scheme)+(1.0/Re)*Der(u_i,x_j,x_j,scheme))"
+#     testeq=testeq.replace("scheme",sc1)
+mass = "Eq(Der(rho,t), - Skew(rho*u_j,x_j,scheme))"
+mass=mass.replace("scheme",sc1)
+#Debug(mass)
+momentum = "Eq(Der(rhou_i,t) , - Skew(rhou_i*u_j, x_j,scheme) - Der(p,x_i,scheme)  + Der(tau_i_j,x_j,scheme))"
+
+#momentum = "Eq(Der(rhou_i,t) , - Skew(rhou_i*u_j, x_j,scheme) - Der(p,x_i,#scheme)  + Der((1.0/Re)*(Der(u_i,x_j,scheme)+ Der(u_j,x_i,scheme)- (2/3)* KD#(_i,_j)* Der(u_k,x_k,scheme)),x_j,scheme))"
+momentum=momentum.replace("scheme",sc1)
+#Debug(momentum)
+energy = "Eq(Der(rhoE,t), - Skew(rhoE*u_j,x_j,scheme) - Conservative(p*u_j,x_j,scheme) + Der(q_j,x_j,scheme) + Der(u_i*tau_i_j ,x_j,scheme))"
+
+energy=energy.replace("scheme",sc1)
+#Debug(energy)
 
 # Substitutions used in the equations
-stress_tensor = "Eq(tau_i_j, (1.0/Re)*(Der(u_i,x_j)+ Der(u_j,x_i)- (2/3)* KD(_i,_j)* Der(u_k,x_k)))"
-heat_flux = "Eq(q_j, (1.0/((gama-1)*Minf*Minf*Pr*Re))*Der(T,x_j))"
+# stress_tensor = "Eq(tau_i_j, (1.0/Re)*(Der(u_i,x_j,scheme)+ Der(u_j,x_i,scheme)- (2/3)* KD(_i,_j)* Der(u_k,x_k,scheme)))"
+# stress_tensor=stress_tensor.replace("scheme",sc1)
+#Debug("Stress=",stress_tensor)
+# heat_flux = "Eq(q_j, (1.0/((gama-1)*Minf*Minf*Pr*Re))*Der(T,x_j,scheme))"
+# heat_flux=heat_flux.replace("scheme",sc1)
 
-substitutions = [stress_tensor, heat_flux]
+# substitutions = [stress_tensor, heat_flux]
+
+substitutions = []
 
 # Constants that are used
 constants = ["Re", "Pr", "gama", "Minf", "mu"]
@@ -33,27 +63,46 @@ coordinate_symbol = "x"
 velocity = "Eq(u_i, rhou_i/rho)"
 pressure = "Eq(p, (gama-1)*(rhoE - rho*(1/2)*(KD(_i,_j)*u_i*u_j)))"
 temperature = "Eq(T, p*gama*Minf*Minf/(rho))"
+stress_tensor = "Eq(tau_i_j, (1.0/Re)*(Der(u_i,x_j,scheme)+ Der(u_j,x_i,scheme)- (2/3)* KD(_i,_j)* Der(u_k,x_k,scheme)))"
+stress_tensor=stress_tensor.replace("scheme",sc1)
+#Debug("Stress=",stress_tensor)
+heat_flux = "Eq(q_j, (gama/((gama-1)*Pr*Re))*Der(p/rho,x_j,scheme))"
+heat_flux=heat_flux.replace("scheme",sc1)
 
 # Instantiate EinsteinEquation class for expanding the Einstein indices in the equations
 einstein_eq = EinsteinEquation()
 
 # Expand the simulation equations, for this create a simulation equations class
-simulation_eq = SimulationEquations()
+simulation_eq = SimulationEquationsResidualCR()
+
+
+# eqns = einstein_eq.expand(testeq, ndim, coordinate_symbol, substitutions, constants)
+# simulation_eq.add_equations(eqns)
+# #Debug("testeq=",eqns)
 
 # Expand mass and add the expanded equations to the simulation equations
 eqns = einstein_eq.expand(mass, ndim, coordinate_symbol, substitutions, constants)
+#Debug(eqns)
 simulation_eq.add_equations(eqns)
 
 # Expand momentum add the expanded equations to the simulation equations
 eqns = einstein_eq.expand(momentum, ndim, coordinate_symbol, substitutions, constants)
+#Debug("Mommentum=",pprint(eqns))
 simulation_eq.add_equations(eqns)
+
+# eqns = einstein_eq.expand(stress_tensor, ndim, coordinate_symbol, substitutions, constants)
+# simulation_eq.add_equations(eqns)
+
+# eqns = einstein_eq.expand(heat_flux, ndim, coordinate_symbol, substitutions, constants)
+# simulation_eq.add_equations(eqns)
 
 # Expand energy equation add the expanded equations to the simulation equations
 eqns = einstein_eq.expand(energy, ndim, coordinate_symbol, substitutions, constants)
+#Debug(eqns)
 simulation_eq.add_equations(eqns)
 
 # Expand the constituent relations and them to the constituent relations class
-constituent = ConstituentRelations()  # Instantiate constituent relations object
+constituent = ConstituentRelationsGradient()  # Instantiate constituent relations object
 
 # Expand momentum add the expanded equations to the constituent relations
 eqns = einstein_eq.expand(velocity, ndim, coordinate_symbol, substitutions, constants)
@@ -64,7 +113,13 @@ eqns = einstein_eq.expand(pressure, ndim, coordinate_symbol, substitutions, cons
 constituent.add_equations(eqns)
 
 # Expand temperature add the expanded equations to the constituent relations
-eqns = einstein_eq.expand(temperature, ndim, coordinate_symbol, substitutions, constants)
+# eqns = einstein_eq.expand(temperature, ndim, coordinate_symbol, substitutions, constants)
+# constituent.add_equations(eqns)
+
+eqns = einstein_eq.expand(stress_tensor, ndim, coordinate_symbol, substitutions, constants)
+constituent.add_equations(eqns)
+
+eqns = einstein_eq.expand(heat_flux, ndim, coordinate_symbol, substitutions, constants)
 constituent.add_equations(eqns)
 
 # Write the expanded equations to a Latex file with a given name and titile
@@ -105,6 +160,7 @@ rhou2 = "Eq(DataObject(rhou2), r*u2)"
 rhoE = "Eq(DataObject(rhoE), p/(gama-1) + 0.5* r *(u0**2+ u1**2 + u2**2))"
 
 eqns = [x0, x1, x2, u0, u1, u2, p, r, rho, rhou0, rhou1, rhou2, rhoE]
+#eqns = [x0, x1, u0,u1]
 
 # parse the initial conditions
 initial_equations = [parse_expr(eq, local_dict=local_dict) for eq in eqns]
@@ -115,10 +171,17 @@ initial.add_equations(initial_equations)
 # Create a schemes dictionary to be used for discretisation
 schemes = {}
 # Central scheme for spatial discretisation and add to the schemes dictionary
-cent = Central(4)
-compact = Compact(4, trid)
 
-schemes[cent.name] = cent
+
+
+if len(sys.argv)>1:
+    compact = Compact(4, trid)
+    schemes[compact.name] = compact
+else:
+    cent = Central(4)
+    schemes[cent.name] = cent
+
+
 # RungeKutta scheme for temporal discretisation and add to the schemes dictionary
 rk = RungeKutta(3)
 schemes[rk.name] = rk
@@ -135,10 +198,11 @@ block.set_block_boundaries(boundaries)
 kwargs = {'iotype': "Write"}
 h5 = iohdf5(save_every=10000, **kwargs)
 h5.add_arrays(simulation_eq.time_advance_arrays)
-# h5.add_arrays([DataObject('x0'), DataObject('x1'), DataObject('x2')])
+#h5.add_arrays([DataObject('x0'), DataObject('x1'), DataObject('x2')])
+#h5.add_arrays([DataObject('x0')])
 block.setio(copy.deepcopy(h5))
 # set the equations to be solved on the block
-block.set_equations([copy.deepcopy(constituent), copy.deepcopy(simulation_eq), initial])
+block.set_equations([copy.deepcopy(constituent),copy.deepcopy(simulation_eq), initial])
 # set the discretisation schemes
 block.set_discretisation_schemes(schemes)
 
@@ -146,14 +210,19 @@ block.set_discretisation_schemes(schemes)
 block.discretise()
 
 # create an algorithm from the discretised computations
-alg = TraditionalAlgorithmRK(block)
+alg = TraditionalAlgorithmRKCR(block)
 
 # set the simulation data type, for more information on the datatypes see opensbli.core.datatypes
 SimulationDataType.set_datatype(Double)
 
 # Write the code for the algorithm
-OPSCCompact(alg, trid)
 
+if len(sys.argv)>1:
+    Debug("Using compact scheme..")
+    OPSCCompact(alg, trid)
+else:
+    OPSC(alg)
+# OPSC(alg)
 constants = ['Re', 'gama', 'Minf', 'Pr', 'dt', 'niter', 'block0np0', 'block0np1', 'block0np2', 'Delta0block0', 'Delta1block0', 'Delta2block0']
 values = ['1600.0', '1.4', '0.1', '0.71', '0.003385', '5909', '64', '64', '64', '2*M_PI/block0np0', '2*M_PI/block0np1', '2*M_PI/block0np2']
 substitute_simulation_parameters(constants, values)
