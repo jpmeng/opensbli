@@ -1,5 +1,5 @@
 """@brief
-   @authors Satya Pramod Jammy, David J Lusher
+   @authors Satya Pramod Jammy, David J Lusher, Jianping Meng
    @contributors
    @details
 """
@@ -327,9 +327,25 @@ class Kernel(object):
 
 
 class ImplicitKernel(Kernel):
-    """ A computational kernel, which will be executed over all the grid points in parallel."""
+    """ Kernel for implicit type schemes for space gradients"""
     mulfactor = {0: 1, 1: 1}
     opsc_access = {'ins': "OPS_READ", "outs": "OPS_WRITE", "inouts": "OPS_RW"}
+
+    def add_equation(self, equation):
+        """ Add an equation or list of equations to be evaluated inside this computational kernel."""
+        self.rhsorder = equation.rhs.order
+        self.rhsdirection=equation.rhs.get_direction
+        if isinstance(equation, list):
+            self.equations += flatten([equation])
+        elif isinstance(equation, Equality):
+            self.equations += [equation]
+        elif isinstance(equation, GroupedPiecewise):
+            self.equations += [equation]
+        elif equation:
+            pass
+        else:
+            raise ValueError("Error when adding equations to the kernel.")
+        return
 
 
     @property
@@ -342,15 +358,15 @@ class ImplicitKernel(Kernel):
         inouts = ins.intersection(outs)
         ins = ins.difference(inouts)
         outs = outs.difference(inouts)
+
         if len(self.equations) == 0:
             raise ValueError("Kernel %s does not have any equations." % self.computation_name)
         # range_of_eval = self.total_range()
         dtype = Int().opsc()
-        # iter_name = "iteration_range_%d_block%d" % (self.kernel_no, self.block_number)
-        # iter_name_code = ['%s %s[] = {%s};' % (dtype, iter_name, ', '.join([str(s) for s in flatten(range_of_eval)]))]
-        # Debug("IterName=",iter_name_code)
         code=[]
-        code += ["CompactDerivative( "+str(list(ins)[0])+", "+str(list(outs)[0])+" );"]
+
+        code += ["CompactDerivative( "+str(list(ins)[0])+", "+str(list(outs)[0])+","+str(self.rhsorder)+", "+str(self.rhsdirection)+");"]
+
 
         # TODO check the dtype from the dataset
         sim_dtype = SimulationDataType.opsc()

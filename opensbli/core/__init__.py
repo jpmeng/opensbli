@@ -8,3 +8,4 @@ from .parsing import *
 from .io_hdf5 import *
 from .kernel import *
 from .diagnostics import *
+from .kernel import Kernel, ImplicitKernel
