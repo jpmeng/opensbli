@@ -11,6 +11,7 @@ from opensbli.core.opensbliobjects import ConstantObject, DataSet, CoordinateObj
 from opensbli.core.opensblifunctions import CentralDerivative
 from opensbli.equation_types.opensbliequations import OpenSBLIEq, SimulationEquations
 from opensbli.core.kernel import Kernel
+from opensbli.utilities.helperfunctions import Debug
 
 
 class Scheme(object):

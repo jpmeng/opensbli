@@ -413,7 +413,6 @@ class EinsteinEquation(EinsteinStructure):
         # Perform substitutions, if any.
         if substitutions:
             for sub in substitutions:
-                Debug("sub=",sub)
                 temp = parse_expr(sub, local_dict, tuple([convert_coordinate])+standard_transformations, evaluate=False)
                 self.parsed = self.parsed.xreplace({temp.lhs: temp.rhs})
         pot = preorder_traversal(self.parsed)

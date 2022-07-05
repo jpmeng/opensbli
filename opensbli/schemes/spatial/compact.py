@@ -257,18 +257,17 @@ class Compact(Scheme):
         if isinstance(type_of_eq, SimulationEquations):
             """ Simulation equations are always solved as sbli_rhs_discretisation as of now
             # TODO V2 change the name"""
-            Debug("TypeEq=",type_of_eq)
             self.sbli_rhs_discretisation(type_of_eq, block)
             return self.required_constituent_relations
         else:
             block.store_work_index  # Store work
-            local_kernels, discretised_eq = self.general_discretisation(type_of_eq.equations, block, name=type_of_eq.__class__.__name__)
-            block.reset_work_to_stored  # Reset
+            local_kernels, discretised_eq = self.general_discretisation       (type_of_eq.equations, block, name=type_of_eq.__class__.__name__)
+            block.reset_work_to_stored # Reset
             if discretised_eq:
                 for ker in local_kernels:
                     eval_ker = local_kernels[ker]
                     type_of_eq.Kernels += [eval_ker]
-
+                # Might be CR
                 discretisation_kernel = Kernel(block, computation_name="%s evaluation" % type_of_eq.__class__.__name__)
                 discretisation_kernel.set_grid_range(block)
                 for eq in discretised_eq:
@@ -280,35 +279,6 @@ class Compact(Scheme):
                 pass
             return self.required_constituent_relations
 
-
-    # def discretise(self, type_of_eq, block):
-    #     """Discretisation application."""
-    #     self.set_halos(block)
-    #     if isinstance(type_of_eq, SimulationEquations):
-    #         """ Simulation equations are always solved as sbli_rhs_discretisation as of now
-    #         # TODO V2 change the name"""
-    #         Debug("TypeEq=",type_of_eq)
-    #         self.sbli_rhs_discretisation(type_of_eq, block)
-    #         return self.required_constituent_relations
-    #     else:
-    #         block.store_work_index  # Store work
-    #         local_kernels, discretised_eq = self.general_discretisation(type_of_eq.equations, block, name=type_of_eq.__class__.__name__)
-    #         block.reset_work_to_stored  # Reset
-    #         if discretised_eq:
-    #             for ker in local_kernels:
-    #                 eval_ker = local_kernels[ker]
-    #                 type_of_eq.Kernels += [eval_ker]
-
-    #             discretisation_kernel = Kernel(block, computation_name="%s evaluation" % type_of_eq.__class__.__name__)
-    #             discretisation_kernel.set_grid_range(block)
-    #             for eq in discretised_eq:
-    #                 discretisation_kernel.add_equation(eq)
-    #             discretisation_kernel.update_block_datasets(block)
-    #             type_of_eq.Kernels += [discretisation_kernel]
-    #             return self.required_constituent_relations
-    #         else:
-    #             pass
-    #         return self.required_constituent_relations
 
     def get_local_function(self, list_of_components):
         CompactDerivatives_in_class = []
@@ -334,7 +304,6 @@ class Compact(Scheme):
     ## TODO constituent_relations should not have derivative, using kernel
     def update_range_of_constituent_relations(self, compact_derivative, block):
         direction = compact_derivative.get_direction[0]
-
         if compact_derivative.required_datasets:
             for v in compact_derivative.required_datasets:
                 if v in self.required_constituent_relations.keys():
@@ -365,17 +334,12 @@ class Compact(Scheme):
         This is the discretisation for the compressible Navier-Stokes equations by classifying them based on Reynolds number
         # TODO get the parameters dynamically from the problem script
         """
-        Debug("Start debug") ## TODO debug
         equations = flatten(type_of_eq.equations)
-        Debug("equations",equations) ## TODO Debug
         residual_arrays = [eq.residual for eq in equations]
         equations = [e._sanitise_equation for e in equations]
         classify_parameter = ConstantObject("Re")
         self.required_constituent_relations = {}
         viscous, convective = self.classify_equations_on_parameter(equations, classify_parameter)
-        Debug("residual_arrays",residual_arrays)
-        Debug("convective",convective)
-        Debug("viscous=",viscous)
         kernels = []
         convective_grouped = self.group_by_direction(convective)
         if convective_grouped:
@@ -484,7 +448,6 @@ class Compact(Scheme):
         """
         discretized_equations = flatten(equations)[:]
         cts = self.get_local_function(flatten(equations))
-        Debug("cts=",cts)
         if cts:
             local_kernels = {}
             if block.store_derivatives:
@@ -528,7 +491,7 @@ class Compact(Scheme):
                     containing_terms[number] = Add(containing_terms[number], expr)
                 else:
                     other_terms[number] = Add(other_terms[number], expr)
-        # Zero out aplaceholdernumberofy other derivatives in the containing terms and other terms
+        # Zero out other derivatives in the containing terms and other terms
         for no, eq in enumerate(other_terms):
             fns = [fn for fn in eq.atoms(Function) if not isinstance(fn, CompactDerivative)]
             substitutions = dict(zip(fns, [0]*len(fns)))
