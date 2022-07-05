@@ -1,5 +1,6 @@
 """@brief Algorithm generation
    @author Satya Pramod Jammy
+   @contributors Jianping Meng
    @details Implements the tree-based structure with the attribute (components) controls the
    depth of a node.
    TODO split this into different parts one which creates the algorithm and printing the code
@@ -11,7 +12,6 @@ from opensbli.code_generation.latex import LatexWriter
 from opensbli.core.opensbliobjects import Constant, DataSetBase
 from opensbli.code_generation.algorithm.common import BeforeSimulationStarts, AfterSimulationEnds, InTheSimulation
 import copy
-
 
 class Loop(object):
     """ Base object representing loops in an algorithm
@@ -493,3 +493,121 @@ class TraditionalAlgorithmRK(object):
             if len(blocks[0].get_temporal_schemes) > 1:
                 raise ValueError("More than one temporal scheme for a block")
         return
+
+class TraditionalAlgorithmRKCR(TraditionalAlgorithmRK):
+    """ This class allows evaluating the gradients in constitutive laws by modifying the treatment of these equations.
+    """
+
+    def generate_solution(self, blocks):
+        """ Generates the solution for the block
+        """
+        from opensbli.equation_types.opensbliequations import SimulationEquations, NonSimulationEquations, ConstituentRelations
+        print("Generating algorithm and writing latex of it")
+        fname = 'algorithm.tex'
+        latex = LatexWriter()
+        latex.open(fname, "Algorithm for the equations")
+        if self.MultiBlock:
+            raise NotImplementedError("")
+        else:
+            b = blocks[0]
+            bc_kernels, inner_temporal_advance_kernels, temporal_start, temporal_end, spatial_kernels, = [], [], [], [], []
+            before_time, after_time, in_time, non_simulation_eqs = [], [], [], []
+
+            # Raise an error if there is more than one temporal scheme
+            if len(b.get_temporal_schemes) > 1:
+                raise ValueError("Found more than one temporal scheme on the block")
+            # Ordering of the kernels within the algorithm
+            for scheme in b.get_temporal_schemes:
+                for key, value in scheme.solution.items():
+                    if isinstance(key, ConstituentRelations):
+
+                        # bc_kernels = key.boundary_kernels
+                        # TODO  potential BC treatment
+                        for eq in flatten(key.equations):
+                            if isinstance(eq.kernels,list):
+                                for ker in eq.kernels:
+                                    spatial_kernels.append(ker)
+                            else:
+                                spatial_kernels.append(eq.kernels)
+
+                for key, value in scheme.solution.items():
+                    if isinstance(key, SimulationEquations):
+                        # Solution advancement kernels
+                        temporal_start += scheme.solution[key].start_kernels
+                        temporal_end += scheme.solution[key].end_kernels
+                        inner_temporal_advance_kernels += scheme.solution[key].kernels
+                        bc_kernels = key.boundary_kernels
+                        for sim_kernel in key.all_spatial_kernels(b):
+                             spatial_kernels.append(sim_kernel)
+
+
+                    elif isinstance(key, NonSimulationEquations):  # Add all other types of equations
+                        non_simulation_eqs += [key]
+                    else:
+                        if not isinstance(key, ConstituentRelations):
+                            print("NOT classified", type(key))
+                            raise ValueError("Equations class can not be classified: %s" % key)
+
+
+            for key in sorted(non_simulation_eqs, key=lambda x: x.order):
+                for place in key.algorithm_place:
+                    if isinstance(place, BeforeSimulationStarts):
+                        before_time += key.Kernels
+                    elif isinstance(place, AfterSimulationEnds):
+                        after_time += key.Kernels
+                    else:
+                        if place.frequency:
+                            raise NotImplementedError("In Non-simulation equations")
+                        else:
+                            in_time += key.Kernels
+
+            sc = b.get_temporal_schemes[0]
+            # Add optional simulation point monitoring
+            temporal_iteration = sc.temporal_iteration
+            if self.simulation_monitor is not None:
+                t = (Or(Equality((temporal_iteration + 1) % self.simulation_monitor.frequency, 0), Equality(temporal_iteration, 0)))
+                # t = Equality((temporal_iteration + 1) % self.simulation_monitor.frequency, 0)
+                cond = Condition(t)
+                cond.add_components(self.simulation_monitor)
+                in_time += [cond]
+
+
+            innerloop = sc.generate_inner_loop(spatial_kernels + inner_temporal_advance_kernels + bc_kernels)
+            # Add BC kernels to temporal start
+            temporal_start = bc_kernels + temporal_start
+            # Input output of intermediate data writing
+            for io in b.InputOutput:
+                # Check all of the datasets added to the IO classes have been defined elsewhere in the simulation
+                io.check_datasets(b)
+                for place in io.algorithm_place:
+                    if isinstance(place, BeforeSimulationStarts):
+                        io_copy = copy.deepcopy(io)
+                        io_copy.dynamic_fname = False
+                        before_time += [io_copy]
+                    elif isinstance(place, AfterSimulationEnds):
+                        io_copy = copy.deepcopy(io)
+                        io_copy.dynamic_fname = False
+                        after_time += [io_copy]
+                    elif isinstance(place, InTheSimulation):
+                        t = (Equality((temporal_iteration + 1) % place.frequency, 0, evaluate=False))
+                        cond = Condition(t)
+                        io_copy = copy.deepcopy(io)
+                        io_copy.dynamic_fname = True
+                        io_copy.control_parameter = temporal_iteration + 1
+                        cond.add_components(io_copy)
+                        in_time += [cond]
+                    else:
+                        raise NotImplementedError("In Non-simulation equations")
+            tloop = DoLoop(temporal_iteration)
+            tloop.add_components(temporal_start)
+            tloop.add_components(innerloop)
+            tloop.add_components(in_time)
+            tloop.add_components(temporal_end)
+            timed_tloop = self.add_timers(tloop)
+            self.prg.add_components(before_time)
+            self.prg.add_components(timed_tloop)
+            self.prg.add_components(after_time)
+            self.prg.write_latex(latex)
+        latex.close()
+        return
+

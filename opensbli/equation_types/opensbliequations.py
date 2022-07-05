@@ -1,6 +1,6 @@
 """@brief Bsae of discretisaion of equations
    @author Satya Pramod Jammy
-   @contributors David Lusher
+   @contributors David Lusher, Jianping Meng
    @details base classes for different type of equations used in opensbli
 """
 
@@ -9,7 +9,6 @@ from opensbli.core.opensblifunctions import TemporalDerivative
 from sympy import flatten, preorder_traversal
 from sympy import Equality, Function, pprint, srepr
 from opensbli.utilities.helperfunctions import Debug
-
 class Discretisation(object):
     """Contains the functions used in various equation classes of OpenSBLI, to perform
     discretisation. """
@@ -440,14 +439,11 @@ class SimulationEquations(Discretisation, Solution):
     def all_spatial_kernels(cls, block):
         return flatten([cls.sort_constituents(block)] + [cls.Kernels])
 
-class SimulationEquationsResidual(SimulationEquations):
-    """Class for the simulation equations. This performs the discretisation of the equations.
-
-    :param int order: priority in the algorithm if multiple simulation equations exitst
-    """
+class SimulationEquationsResidualCR(SimulationEquations):
+    """This new simulation equation class will name the residual with the variables that it is working for. Also, different from its parent class, it will not treat constitutive laws and leave  it to a new ConstituentRelations class """
 
     def __new__(cls, order=None, **kwargs):
-        ret = super(SimulationEquationsResidual, cls).__new__(cls)
+        ret = super(SimulationEquationsResidualCR, cls).__new__(cls)
         if order:
             ret.order = order
         else:
@@ -467,6 +463,38 @@ class SimulationEquationsResidual(SimulationEquations):
             if not hasattr(eq, 'residual'):
                 eq.residual = block.location_dataset('Residual_'+ name)
         return
+
+    def spatial_discretisation(cls, block):
+        # Instantiate the solution class
+        (Solution, cls).__init__(cls)
+        # Create the residual array for the equations
+        cls.create_residual_arrays(block)
+        # Kernel to make the residuals zero
+        # cls.zero_residuals_kernel(block)
+
+        spatialschemes = []
+        # Get the schemes on the block
+        schemes = block.discretisation_schemes
+        for sc in schemes:
+            if schemes[sc].schemetype == "Spatial":
+                spatialschemes += [sc]
+        # Perform spatial Discretisation
+        cls.constituent_evaluations = {}
+        crs = block.get_constituent_equation_class
+        missing_CR_datasets = []
+        cr_dictionary = {}
+        for cr in crs:
+            cr_dictionary.update(cr.get_relations_dictionary)
+        cls.requires = {}
+        for no, sc in enumerate(spatialschemes):
+            cls.constituent_evaluations[sc] = schemes[sc].discretise(cls, block)
+        cls.process_kernels(block)
+        return
+
+    def all_spatial_kernels(cls, block):
+        return flatten([cls.Kernels])
+
+
 
 class ConstituentRelations(Discretisation, Solution):
     """Class for the ConstituentRelations to performs the discretisation of the equations"""
@@ -517,6 +545,7 @@ class ConstituentRelations(Discretisation, Solution):
 
             cls.Kernels = []
         cls.equations = equations
+
         return
 
     @property
@@ -529,6 +558,53 @@ class ConstituentRelations(Discretisation, Solution):
     def apply_boundary_conditions(cls, block):
         pass
         return
+
+
+class ConstituentRelationsGradient(ConstituentRelations):
+    """This class allows calculating space gradient in constitutive laws."""
+    def spatial_discretisation(cls, block):
+        """Applies the spatial discretisation of the equations by calling the discretisation of each spatial
+        scheme provided on the block
+
+        :param SimulationBlock block: the block on which the equations are solved
+        :return: None """
+        # Instantiate the solution class
+        (Solution, cls).__init__(cls)
+        # Create the residual array for the equations
+        cls.create_residual_arrays()
+
+        spatialschemes = []
+        # Get the schemes on the block
+        schemes = block.discretisation_schemes
+        for sc in schemes:
+            if schemes[sc].schemetype == "Spatial":
+                spatialschemes += [sc]
+        # Perform spatial Discretisation if any in constituent relations evaluation
+        cls.constituent_evaluations = {}
+        equations = cls.equations
+
+        for eq in flatten(equations):
+            cls.equations = [eq]
+            for sc in spatialschemes:
+                cls.constituent_evaluations[sc] = schemes[sc].discretise(cls, block)
+            eq.kernels = cls.Kernels[:]
+
+            cls.Kernels = []
+
+        for eq in flatten(equations):
+            if not eq.kernels:
+                from opensbli.core.kernel import Kernel
+                CRKernel = Kernel(block, computation_name="%s evaluation" % eq.__class__.__name__)
+                CRKernel.set_grid_range(block)
+                CRKernel.add_equation(eq)
+                CRKernel.update_block_datasets(block)
+                eq.kernels = CRKernel
+        cls.equations = equations
+        return
+
+
+
+
 
 
 class NonSimulationEquations(Discretisation):
