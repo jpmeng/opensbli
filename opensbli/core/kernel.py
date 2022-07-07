@@ -326,10 +326,30 @@ class Kernel(object):
         return
 
 
+def copy_block_attributes_implicit(block, otherclass):
+    """ Move this to block."""
+    otherclass.block_number = block.blocknumber
+    otherclass.ndim = block.ndim
+    otherclass.block_name = block.blockname
+    return
 class ImplicitKernel(Kernel):
     """ Kernel for implicit type schemes for space gradients"""
     mulfactor = {0: 1, 1: 1}
     opsc_access = {'ins': "OPS_READ", "outs": "OPS_WRITE", "inouts": "OPS_RW"}
+
+    def __init__(self, scheme, block, computation_name=None):
+        """ Set up the computational kernel"""
+        copy_block_attributes_implicit(block, self)
+
+        self.computation_name = computation_name
+        self.kernel_no = block.kernel_counter
+        self.kernelname = self.block_name + "Kernel%03d" % self.kernel_no
+        block.increase_kernel_counter
+        self.equations = []
+        self.wrap_function_1st = scheme.wrap_function_1st
+        self.halo_ranges = [[set(), set()] for d in range(block.ndim)]
+        return
+
 
     def add_equation(self, equation):
         """ Add an equation or list of equations to be evaluated inside this computational kernel."""
@@ -364,8 +384,15 @@ class ImplicitKernel(Kernel):
         # range_of_eval = self.total_range()
         dtype = Int().opsc()
         code=[]
-
-        code += ["CompactDerivative( "+str(list(ins)[0])+", "+str(list(outs)[0])+","+str(self.rhsorder)+", "+str(self.rhsdirection)+");"]
+        code_str=""
+        if self.rhsorder == 1:
+            code_str = self.wrap_function_1st[self.rhsdirection[0]]
+        #Debug(type(self.wrap_function_1st[0]))
+        code_str = code_str.replace("block_name",block_name)
+        code_str = code_str.replace("var",str(list(ins)[0]))
+        code_str = code_str.replace("der",str(list(outs)[0]))
+        code_str = code_str.replace("delta","Delta"+str(self.rhsdirection[0])+"Block"+str(self.block_number))
+        code+=[code_str]
 
 
         # TODO check the dtype from the dataset

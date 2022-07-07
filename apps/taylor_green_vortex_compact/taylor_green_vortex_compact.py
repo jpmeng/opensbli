@@ -218,8 +218,7 @@ SimulationDataType.set_datatype(Double)
 # Write the code for the algorithm
 
 if len(sys.argv)>1:
-    Debug("Using compact scheme..")
-    OPSCCompact(alg, trid)
+    OPSCCompact(alg, trid, compact)
 else:
     OPSC(alg)
 # OPSC(alg)

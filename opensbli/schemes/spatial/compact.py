@@ -24,6 +24,26 @@ from opensbli.utilities.helperfunctions import Debug
 ## TODO we need to write the template code for the second-order derivative
 
 ## TODO for multi-block application we need to also modify block name
+
+
+stencil_template="""
+#ifdef OPS_3D
+  int local[]{0, 0, 0};
+  ops_stencil local_stencil{ops_decl_stencil(3, 1, local, "000")};
+
+  int neighbor[]{0, 0, 0, -1, 0, 0, 1,  0, 0, 0, -1,
+                0, 0, 1, 0,  0, 0, -1, 0, 0, 1};
+  ops_stencil neighbor_stencil{ops_decl_stencil(3, 7, neighbor, "3d7Point")};
+#endif
+#ifdef OPS_2D
+      int local[]{0, 0};
+    ops_stencil local_stencil{ops_decl_stencil(2, 1, local, "00")};
+    // declare stencils for the central differencing
+    int neighbor[]{0, 0, 1, 0, -1, 0, 0, 1, 0, -1};
+    ops_stencil neighbor_stencil{ops_decl_stencil(2, 5, neighbor, "2d5Point")};
+#endif
+"""
+
 varible_template="""ops_dat name_place;
 {
     int halo_p[] = {halo_place, halo_place, halo_place};
@@ -36,75 +56,75 @@ varible_template="""ops_dat name_place;
 """
 
 kernel_derivative_x_template = """
-void PreprocessX4thCompact(const ACC<double> &u, ACC<double> &a, ACC<double> &b,
-                 ACC<double> &c, ACC<double> &d, int *idx) {
+void PreprocessX4thCompact1st(const ACC<double> &u, ACC<double> &a, ACC<double> &b, ACC<double> &c, ACC<double> &d, ACC<double> &ux, int *idx, int* nx, double* dx) {
   const int i{idx[0]};
   d(0, 0, 0) = u(1, 0, 0) - u(-1, 0, 0);
+  ux(0,0,0) = 0;
   if (i == 0) {
     a(0, 0, 0) = 0;
-    b(0, 0, 0) = 2 * placeholderdx;
+    b(0, 0, 0) = 2 * (*dx);
     c(0, 0, 0) = 0;
 
-  } else if (i == (placeholdernumberofx - 1)) {
+  } else if (i == ((*nx) - 1)) {
     a(0, 0, 0) = 0;
-    b(0, 0, 0) = 2 * placeholderdx;
+    b(0, 0, 0) = 2 * (*dx);
     c(0, 0, 0) = 0;
 
   } else {
-    a(0, 0, 0) = left;
-    b(0, 0, 0) = present;
-    c(0, 0, 0) = right;
+    a(0, 0, 0) = (*dx)/3;
+    b(0, 0, 0) = 4*(*dx)/3;
+    c(0, 0, 0) = (*dx)/3);
   }
 }
 """
 
-kernel_derivative_y_template = """void PreprocessY4thCompact(const ACC<double> &u, ACC<double> &a, ACC<double> &b,
-                 ACC<double> &c, ACC<double> &d, int *idx) {
+kernel_derivative_y_template = """
+void PreprocessY4thCompact1st(const ACC<double> &u, ACC<double> &a, ACC<double> &b, ACC<double> &c, ACC<double> &d, ACC<double> &uy, int *idx, int* ny, double* dy) {
   const int j{idx[1]};
   d(0, 0, 0) = u(0, 1, 0) - u(0, -1, 0);
+  uy(0,0,0) = 0;
   if (j == 0) {
     a(0, 0, 0) = 0;
-    b(0, 0, 0) = 2 * placeholderdy;
+    b(0, 0, 0) = 2 * (*dy);
     c(0, 0, 0) = 0;
-  } else if (j == (placeholdernumberofy - 1)) {
+  } else if (j == ((*ny) - 1)) {
     a(0, 0, 0) = 0;
-    b(0, 0, 0) = 2 * placeholderdy;
+    b(0, 0, 0) = 2 * (*dy);
     c(0, 0, 0) = 0;
   } else {
-    a(0, 0, 0) = left;
-    b(0, 0, 0) = present;
-    c(0, 0, 0) = right;
+    a(0, 0, 0) = (*dy)/3;
+    b(0, 0, 0) = 4*(*dy)/3;
+    c(0, 0, 0) = (*dy)/3;
   }
 }
 """
 
-kernel_derivative_z_template = """void preprocessZ(const ACC<double> &u, ACC<double> &a, ACC<double> &b,
-                 ACC<double> &c, ACC<double> &d, int *idx) {
+kernel_derivative_z_template = """
+void PreprocessZ4thCompact1st(const ACC<double> &u, ACC<double> &a, ACC<double> &b,ACC<double> &c, ACC<double> &d, ACC<double> &uz,int *idx,int* nz, double* dz) {
   const int k{idx[2]};
   d(0, 0, 0) = u(0, 0, 1) - u(0, 0, -1);
+  uz(0,0,0) = 0;
   if (k == 0) {
     a(0, 0, 0) = 0;
-    b(0, 0, 0) = 2 * h;
+    b(0, 0, 0) = 2 * (*dz);
     c(0, 0, 0) = 0;
 
-  } else if (k == (nz - 1)) {
+  } else if (k == ((*nz) - 1)) {
     a(0, 0, 0) = 0;
-    b(0, 0, 0) = 2 * h;
+    b(0, 0, 0) = 2 * (*dz);
     c(0, 0, 0) = 0;
 
   } else {
-    a(0, 0, 0) = left;
-    b(0, 0, 0) = present;
-    c(0, 0, 0) = right;
+    a(0, 0, 0) = (*dz)/3;
+    b(0, 0, 0) = 4*(*dz)/3;
+    c(0, 0, 0) = (*dz)/3;
   }
 }
 """
 kernel_templates = [kernel_derivative_x_template, kernel_derivative_y_template, kernel_derivative_z_template]
 
-wrap_function_template_x = """
-void CompactDifferenceX(ops_block& block, ops_dat& u, ops_dat& a, ops_dat& b,
-                        ops_dat& c, ops_dat& d, ops_dat& ux,
-                        ops_tridsolver_params* trid) {
+wrap_function_template_x_4th_1st = """
+void CompactDifference4thX1st(ops_block& block, ops_dat& u, ops_dat& a, ops_dat& b,ops_dat& c, ops_dat& d, ops_dat& ux,ops_tridsolver_params* trid, double delta) {
   int* size{u->size};
   int* dm{u->d_m};
   int* dp{u->d_p};
@@ -113,24 +133,21 @@ void CompactDifferenceX(ops_block& block, ops_dat& u, ops_dat& a, ops_dat& b,
     size[i] = size[i] - dp[i] + dm[i];
   };
   int iterRange[]{0, size[0], 0, size[1], 0, size[2]};
-  ops_par_loop(preprocessX, "preprocessX", block, 3, iterRange,
-               ops_arg_dat(u, 1, S3D_7PT, "double", OPS_READ),
-               ops_arg_dat(a, 1, S3D_000, "double", OPS_WRITE),
-               ops_arg_dat(b, 1, S3D_000, "double", OPS_WRITE),
-               ops_arg_dat(c, 1, S3D_000, "double", OPS_WRITE),
-               ops_arg_dat(d, 1, S3D_000, "double", OPS_WRITE),
-               ops_arg_dat(ux, 1, S3D_000, "double", OPS_WRITE), ops_arg_idx());
-
-  // Get the u_y, note that the solver will add result to ux so that uy must be
-  // // zero before the call
+  ops_par_loop(PreprocessX4thCompact1st, "preprocessX", block, 3, iterRange,
+               ops_arg_dat(u, 1, neighbor_stencil, "double", OPS_READ),
+               ops_arg_dat(a, 1, local_stencil, "double", OPS_WRITE),
+               ops_arg_dat(b, 1, local_stencil, "double", OPS_WRITE),
+               ops_arg_dat(c, 1, local_stencil, "double", OPS_WRITE),
+               ops_arg_dat(d, 1, local_stencil, "double", OPS_WRITE),
+               ops_arg_dat(ux, 1, local_stencil, "double", OPS_WRITE), ops_arg_idx(),
+               ops_arg_gbl(&size[0], 1, "int", OPS_READ),
+               ops_arg_gbl(&delta, 1, "double", OPS_READ));
   ops_tridMultiDimBatch_Inc(spaceDim, 0, size, a, b, c, d, ux, trid);
 }
 """
 
-wrap_function_template_y = """
-void CompactDifferenceY(ops_block& block, ops_dat& u, ops_dat& a, ops_dat& b,
-                        ops_dat& c, ops_dat& d, ops_dat& uy,
-                        ops_tridsolver_params* trid) {
+wrap_function_template_y_4th_1st = """
+void CompactDifference4thY1st(ops_block& block, ops_dat& u, ops_dat& a, ops_dat& b,ops_dat& c, ops_dat& d, ops_dat& uy, ops_tridsolver_params* trid, double delta) {
   int* size{u->size};
   int* dm{u->d_m};
   int* dp{u->d_p};
@@ -139,24 +156,22 @@ void CompactDifferenceY(ops_block& block, ops_dat& u, ops_dat& a, ops_dat& b,
     size[i] = size[i] - dp[i] + dm[i];
   };
   int iterRange[]{0, size[0], 0, size[1], 0, size[2]};
-  ops_par_loop(preprocessY, "preprocessY", block, 3, iterRange,
-               ops_arg_dat(u, 1, S3D_7PT, "double", OPS_READ),
-               ops_arg_dat(a, 1, S3D_000, "double", OPS_WRITE),
-               ops_arg_dat(b, 1, S3D_000, "double", OPS_WRITE),
-               ops_arg_dat(c, 1, S3D_000, "double", OPS_WRITE),
-               ops_arg_dat(d, 1, S3D_000, "double", OPS_WRITE),
-               ops_arg_dat(uy, 1, S3D_000, "double", OPS_WRITE), ops_arg_idx());
-
-  // Get the u_y, note that the solver will add result to ux so that uy must be
-  // // zero before the call
+  ops_par_loop(PreprocessY4thCompact1st, "preprocessY", block, 3, iterRange,
+               ops_arg_dat(u, 1, neighbor_stencil, "double", OPS_READ),
+               ops_arg_dat(a, 1, local_stencil, "double", OPS_WRITE),
+               ops_arg_dat(b, 1, local_stencil, "double", OPS_WRITE),
+               ops_arg_dat(c, 1, local_stencil, "double", OPS_WRITE),
+               ops_arg_dat(d, 1, local_stencil, "double", OPS_WRITE),
+               ops_arg_dat(uy, 1, local_stencil, "double", OPS_WRITE), ops_arg_idx(),
+               ops_arg_gbl(&size[1], 1, "int", OPS_READ),
+               ops_arg_gbl(&delta, 1, "double", OPS_READ)
+               );
   ops_tridMultiDimBatch_Inc(spaceDim, 0, size, a, b, c, d, uy, trid);
 }
 """
 
-wrap_function_template_z = """
-void CompactDifferenceZ(ops_block& block, ops_dat& u, ops_dat& a, ops_dat& b,
-                        ops_dat& c, ops_dat& d, ops_dat& uz,
-                        ops_tridsolver_params* trid) {
+wrap_function_template_z_4th_1st = """
+void CompactDifference4thZ1st(ops_block& block, ops_dat& u, ops_dat& a, ops_dat& b,ops_dat& c, ops_dat& d, ops_dat& uz,ops_tridsolver_params* trid, double delta) {
   int* size{u->size};
   int* dm{u->d_m};
   int* dp{u->d_p};
@@ -165,21 +180,19 @@ void CompactDifferenceZ(ops_block& block, ops_dat& u, ops_dat& a, ops_dat& b,
     size[i] = size[i] - dp[i] + dm[i];
   };
   int iterRange[]{0, size[0], 0, size[1], 0, size[2]};
-  ops_par_loop(preprocessZ, "preprocessZ", block, 3, iterRange,
-               ops_arg_dat(u, 1, S3D_7PT, "double", OPS_READ),
-               ops_arg_dat(a, 1, S3D_000, "double", OPS_WRITE),
-               ops_arg_dat(b, 1, S3D_000, "double", OPS_WRITE),
-               ops_arg_dat(c, 1, S3D_000, "double", OPS_WRITE),
-               ops_arg_dat(d, 1, S3D_000, "double", OPS_WRITE),
-               ops_arg_dat(uz, 1, S3D_000, "double", OPS_WRITE), ops_arg_idx());
-
-  // Get the u_y, note that the solver will add result to ux so that uy must be
-  // // zero before the call
+  ops_par_loop(PreprocessZ4thCompact1st, "preprocessZ", block, 3, iterRange,
+               ops_arg_dat(u, 1, neighbor_stencil, "double", OPS_READ),
+               ops_arg_dat(a, 1, local_stencil, "double", OPS_WRITE),
+               ops_arg_dat(b, 1, local_stencil, "double", OPS_WRITE),
+               ops_arg_dat(c, 1, local_stencil, "double", OPS_WRITE),
+               ops_arg_dat(d, 1, local_stencil, "double", OPS_WRITE),
+               ops_arg_dat(uz, 1, local_stencil, "double", OPS_WRITE), ops_arg_idx(), ops_arg_gbl(&size[2], 1, "int", OPS_READ),
+               ops_arg_gbl(&delta, 1, "double", OPS_READ));
   ops_tridMultiDimBatch_Inc(spaceDim, 0, size, a, b, c, d, uz, trid);
 }
 """
 
-wrap_templates = [wrap_function_template_x, wrap_function_template_y, wrap_function_template_z]
+
 
 
 class CompactHalos(object):
@@ -223,24 +236,31 @@ class Compact(Scheme):
         self.required_constituent_relations = {}
         self.halotype = CompactHalos(order)
         self.points = list(i for i in range(-1, 2))
-        kernel = open("compactscheme_kernel.h", "w")
-        wrap = open("compactscheme.cpp", "w")
+        #self.preprocess_functions =[]
+        self.kernel_file_name = "compactscheme_kernel.h"
+        kernel=open(self.kernel_file_name, "w")
+        kernel.write("#ifndef COMPACT_KERNEL_H\n")
+        kernel.write("#define COMPACT_KERNEL_H\n")
         for kernelString in kernel_templates:
             kernel.write(kernelString)
+            #self.preprocess_functions.append(kernelString)
+        kernel.write("#endif\n")
+        kernel.close()
         aString = varible_template.replace("name_place","a");
         aString = aString.replace("halo_place",str(self.halotype.get_halos(1)))
-        wrap.write(aString)
         bString = varible_template.replace("name_place","b");
         bString = bString.replace("halo_place",str(self.halotype.get_halos(1)))
-        wrap.write(bString)
         cString = varible_template.replace("name_place","c");
         cString = cString.replace("halo_place",str(self.halotype.get_halos(1)))
-        wrap.write(cString)
-        for wrapString in wrap_templates:
-            wrap.write(wrapString)
-        aString = varible_template.replace("name_place","a");
-        kernel.close()
-        wrap.close()
+        self.data_def = [aString,bString,cString]
+        self.wrap_templates_1st = [wrap_function_template_x_4th_1st, wrap_function_template_y_4th_1st, wrap_function_template_z_4th_1st]
+        self.wrap_function_1st = {0:"CompactDifference4thX1st(block_name, var,a,b,c, d, der,trid,delta);",1:"CompactDifference4thY1st(block_name, var,a,b,c, d, der,trid,delta);",2:"CompactDifference4thZ1st(block_name, var,a,b,c, d, der,trid,delta);"}
+        wrap_temp =  self.wrap_function_1st
+        for key, fun_def in wrap_temp.items():
+            fun_def = fun_def.replace("trid",linear_solver.name)
+            self.wrap_function_1st[key] = fun_def
+        self.stencils = stencil_template
+
         return
 
     def set_halos(self, block):
@@ -372,7 +392,7 @@ class Compact(Scheme):
                         v1 = v
                     #here we just need an equation of work and the terms to be discretised
                     expr = OpenSBLIEq(v.work, v1)
-                    ker = ImplicitKernel(block)
+                    ker = ImplicitKernel(self,block)
                     ker.add_equation(expr)
                     ker.set_computation_name("Convective %s " % (v))
                     ker.set_grid_range(block)
@@ -453,7 +473,7 @@ class Compact(Scheme):
             if block.store_derivatives:
                 for der in cts:
                     der.update_work(block)
-                    ker = ImplicitKernel(block)
+                    ker = ImplicitKernel(self,block)
                     if name:
                         ker.set_computation_name("%s %s " % (name, der))
                     local_kernels[der] = ker  # Reverted back

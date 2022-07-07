@@ -31,11 +31,12 @@ class OPSCCompact(OPSC):
     ops_headers = {'input': "const %s &%s", 'output': '%s &%s', 'inout': '%s &%s'}
 
     # Revised
-    def __init__(self, algorithm, LinearSolver, operation_count=False, OPS_diagnostics=1):
+    def __init__(self, algorithm, LinearSolver, ImplicitScheme,operation_count=False, OPS_diagnostics=1):
         # if not algorithm.MultiBlock:
         self.operation_count = operation_count
         self.OPS_diagnostics = OPS_diagnostics
         self.MultiBlock = False
+        self.scheme = ImplicitScheme
         self.linear_solver = LinearSolver
         self.dtype = algorithm.dtype
         # Check if the simulation monitoring should be written to an output log file
@@ -188,7 +189,7 @@ class OPSCCompact(OPSC):
 
     def before_main(self, algorithm):
         """ Adds the required preamble to the main opensbli.cpp file and declares the simulation constants."""
-        out = ['#include <stdlib.h> \n#include <string.h> \n#include <math.h>']
+        out = ['#include <cstdio> \n#include <string> \n#include <cmath>']
         from opensbli.core.kernel import ConstantsToDeclare
         for d in ConstantsToDeclare.constants:
             if isinstance(d, ConstantObject):
@@ -201,9 +202,14 @@ class OPSCCompact(OPSC):
                     out += ["%s %s%s;" % (d.datatype.opsc(), d.base.label, indices)]
         for b in algorithm.block_descriptions:
             out += ['#define OPS_%dD' % b.ndim]
+
         out += ['#include \"ops_seq_v2.h\"']
         for b in algorithm.block_descriptions:
             out += ['#include \"%s_kernels.h\"' % b.block_name]
+
+        out += ['#include \"'+self.scheme.kernel_file_name+'\"']
+        out += [self.scheme.stencils]
+        out += self.scheme.wrap_templates_1st
         # Include optional simulation monitoring reductions file
         if algorithm.simulation_monitor:
             out += ['#include \"%s\"' % algorithm.simulation_monitor.filename]
@@ -237,6 +243,9 @@ class OPSCCompact(OPSC):
         f = open('defdec_data_set.h', 'w')
         datasets_dec = []
         output += [WriteString("#include \"defdec_data_set.h\"")]
+
+        for opsdat in self.scheme.data_def:
+            output +=  [WriteString(opsdat)]
         # Sort the declarations alphabetically before writing out
         store_stencils, store_dsets = [], []
         for d in algorithm.defnitionsdeclarations.components:
