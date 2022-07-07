@@ -391,7 +391,7 @@ class ImplicitKernel(Kernel):
         code_str = code_str.replace("block_name",block_name)
         code_str = code_str.replace("var",str(list(ins)[0]))
         code_str = code_str.replace("der",str(list(outs)[0]))
-        code_str = code_str.replace("delta","Delta"+str(self.rhsdirection[0])+"Block"+str(self.block_number))
+        code_str = code_str.replace("delta","Delta"+str(self.rhsdirection[0])+"block"+str(self.block_number))
         code+=[code_str]
 
 
