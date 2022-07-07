@@ -46,7 +46,7 @@ energy=energy.replace("scheme",sc1)
 # stress_tensor = "Eq(tau_i_j, (1.0/Re)*(Der(u_i,x_j,scheme)+ Der(u_j,x_i,scheme)- (2/3)* KD(_i,_j)* Der(u_k,x_k,scheme)))"
 # stress_tensor=stress_tensor.replace("scheme",sc1)
 #Debug("Stress=",stress_tensor)
-# heat_flux = "Eq(q_j, (1.0/((gama-1)*Minf*Minf*Pr*Re))*Der(T,x_j,scheme))"
+# heat_flux = "Eq(q_j, (1.0/((Gama-1)*Minf*Minf*Pr*Re))*Der(T,x_j,scheme))"
 # heat_flux=heat_flux.replace("scheme",sc1)
 
 # substitutions = [stress_tensor, heat_flux]
@@ -54,19 +54,21 @@ energy=energy.replace("scheme",sc1)
 substitutions = []
 
 # Constants that are used
-constants = ["Re", "Pr", "gama", "Minf", "mu"]
+from opensbli.core.kernel import ConstantsToDeclare as CTD
+CTD.add_constant(ConstantObject('Minf'))
+constants = ["Re", "Pr", "Gama", "Minf"]
 
 # symbol for the coordinate system in the equations
 coordinate_symbol = "x"
 
 # Constituent relations used in the system
 velocity = "Eq(u_i, rhou_i/rho)"
-pressure = "Eq(p, (gama-1)*(rhoE - rho*(1/2)*(KD(_i,_j)*u_i*u_j)))"
-temperature = "Eq(T, p*gama*Minf*Minf/(rho))"
+pressure = "Eq(p, (Gama-1)*(rhoE - rho*(1/2)*(KD(_i,_j)*u_i*u_j)))"
+#temperature = "Eq(T, p*Gama*Minf*Minf/(rho))"
 stress_tensor = "Eq(tau_i_j, (1.0/Re)*(Der(u_i,x_j,scheme)+ Der(u_j,x_i,scheme)- (2/3)* KD(_i,_j)* Der(u_k,x_k,scheme)))"
 stress_tensor=stress_tensor.replace("scheme",sc1)
 #Debug("Stress=",stress_tensor)
-heat_flux = "Eq(q_j, (gama/((gama-1)*Pr*Re))*Der(p/rho,x_j,scheme))"
+heat_flux = "Eq(q_j, (Gama/((Gama-1)*Pr*Re))*Der(p/rho,x_j,scheme))"
 heat_flux=heat_flux.replace("scheme",sc1)
 
 # Instantiate EinsteinEquation class for expanding the Einstein indices in the equations
@@ -150,14 +152,14 @@ x2 = "Eq(GridVariable(x2), block.deltas[2]*block.grid_indexes[2])"
 u0 = "Eq(GridVariable(u0),sin(x0)*cos(x1)*cos(x2))"
 u1 = "Eq(GridVariable(u1),-cos(x0)*sin(x1)*cos(x2))"
 u2 = "Eq(GridVariable(u2), 0.0)"
-p = "Eq(GridVariable(p), 1.0/(gama*Minf*Minf)+ (1.0/16.0) * (cos(2.0*x0)+cos(2.0*x1))*(2.0 + cos(2.0*x2)))"
-r = "Eq(GridVariable(r), gama*Minf*Minf*p)"
+p = "Eq(GridVariable(p), 1.0/(Gama*Minf*Minf)+ (1.0/16.0) * (cos(2.0*x0)+cos(2.0*x1))*(2.0 + cos(2.0*x2)))"
+r = "Eq(GridVariable(r), Gama*Minf*Minf*p)"
 
 rho = "Eq(DataObject(rho), r)"
 rhou0 = "Eq(DataObject(rhou0), r*u0)"
 rhou1 = "Eq(DataObject(rhou1), r*u1)"
 rhou2 = "Eq(DataObject(rhou2), r*u2)"
-rhoE = "Eq(DataObject(rhoE), p/(gama-1) + 0.5* r *(u0**2+ u1**2 + u2**2))"
+rhoE = "Eq(DataObject(rhoE), p/(Gama-1) + 0.5* r *(u0**2+ u1**2 + u2**2))"
 
 eqns = [x0, x1, x2, u0, u1, u2, p, r, rho, rhou0, rhou1, rhou2, rhoE]
 #eqns = [x0, x1, u0,u1]
@@ -222,6 +224,6 @@ if len(sys.argv)>1:
 else:
     OPSC(alg)
 # OPSC(alg)
-constants = ['Re', 'gama', 'Minf', 'Pr', 'dt', 'niter', 'block0np0', 'block0np1', 'block0np2', 'Delta0block0', 'Delta1block0', 'Delta2block0']
+constants = ['Re', 'Gama', 'Minf', 'Pr', 'dt', 'niter', 'block0np0', 'block0np1', 'block0np2', 'Delta0block0', 'Delta1block0', 'Delta2block0']
 values = ['1600.0', '1.4', '0.1', '0.71', '0.003385', '5909', '64', '64', '64', '2*M_PI/block0np0', '2*M_PI/block0np1', '2*M_PI/block0np2']
 substitute_simulation_parameters(constants, values)
