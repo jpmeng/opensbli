@@ -13,6 +13,7 @@ from sympy import flatten, eye
 _known_equation_types = (GroupedPiecewise, OpenSBLIEq)
 from opensbli.schemes.spatial.scheme import CentralHalos_defdec
 from opensbli.utilities.user_defined_kernels import UserDefinedEquations
+from opensbli.utilities.helperfunctions import Debug
 
 
 class KernelCounter():

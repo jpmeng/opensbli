@@ -15,9 +15,9 @@ include $(OPS_INSTALL_PATH)/../makefiles/Makefile.hdf5
 
 HEADERS = opensbliblock00_kernels.h defdec_data_set.h
 
-OTHER_FILES = 
-OPS_GENERATED = opensbli_ops.cpp 
-OPS_FILES = opensbli.cpp 
+OTHER_FILES =
+OPS_GENERATED = opensbli_ops.cpp
+OPS_FILES = opensbli.cpp
 
 
 APP=opensbli
