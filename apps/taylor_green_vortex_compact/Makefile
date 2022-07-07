@@ -4,6 +4,8 @@
 # OPS_INSTALL_PATH
 # OPS_COMPILER (gnu,intel,etc)
 #
+TRID_INC := -I$(TRID_INSTALL_PATH)/include
+TRID_LIB := -L$(TRID_INSTALL_PATH)/lib
 
 USE_HDF5=1
 include $(OPS_INSTALL_PATH)/../makefiles/Makefile.common
