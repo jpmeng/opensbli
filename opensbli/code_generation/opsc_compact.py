@@ -28,7 +28,9 @@ class OPSCCompact(OPSC):
         A value of 5 gives a kernel breakdown of computational kernel and MPI exchange time."""
 
     # This revision is for the new OPS ACC template call
-    ops_headers = {'input': "const %s &%s", 'output': '%s &%s', 'inout': '%s &%s'}
+    ops_headers_acc = {'input': "const %s &%s", 'output': '%s &%s', 'inout': '%s &%s'}
+
+    ops_headers_point = {'input': "const %s *%s", 'output': '%s *%s', 'inout': '%s *%s'}
 
     # Revised
     def __init__(self, algorithm, LinearSolver, ImplicitScheme,operation_count=False, OPS_diagnostics=1):
@@ -63,11 +65,18 @@ class OPSCCompact(OPSC):
         code = []
         dtype = SimulationDataType.opsc()
         for key, val in (tuple_list):
+            Debug("Key=",key,"Type",type(key))
             # if any of the list has the datatype then use the data type
-            if hasattr(key, "datatype") and key.datatype:
-                code += [self.ops_headers[val] % ("ACC<"+key.datatype.opsc()+">", key)]
+            if isinstance(key,DataSetBase):
+                if hasattr(key, "datatype") and key.datatype:
+                    code += [self.ops_headers_acc[val] % ("ACC<"+key.datatype.opsc()+">", key)]
+                else:
+                    code += [self.ops_headers_acc[val] % ("ACC<"+dtype+">", key)]
             else:
-                code += [self.ops_headers[val] % ("ACC<"+dtype+">", key)]
+                if hasattr(key, "datatype") and key.datatype:
+                    code += [self.ops_headers_point[val] % (key.datatype.opsc(), key)]
+                else:
+                    code += [self.ops_headers_point[val] % (dtype, key)]
         code = ', '.join(code)
         return code
 
