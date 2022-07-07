@@ -73,7 +73,7 @@ void PreprocessX4thCompact1st(const ACC<double> &u, ACC<double> &a, ACC<double> 
   } else {
     a(0, 0, 0) = (*dx)/3;
     b(0, 0, 0) = 4*(*dx)/3;
-    c(0, 0, 0) = (*dx)/3);
+    c(0, 0, 0) = (*dx)/3;
   }
 }
 """
@@ -252,7 +252,9 @@ class Compact(Scheme):
         bString = bString.replace("halo_place",str(self.halotype.get_halos(1)))
         cString = varible_template.replace("name_place","c");
         cString = cString.replace("halo_place",str(self.halotype.get_halos(1)))
-        self.data_def = [aString,bString,cString]
+        dString = varible_template.replace("name_place","d");
+        dString = dString.replace("halo_place",str(self.halotype.get_halos(1)))
+        self.data_def = [aString,bString,cString,dString]
         self.wrap_templates_1st = [wrap_function_template_x_4th_1st, wrap_function_template_y_4th_1st, wrap_function_template_z_4th_1st]
         self.wrap_function_1st = {0:"CompactDifference4thX1st(block_name, var,a,b,c, d, der,trid,delta);",1:"CompactDifference4thY1st(block_name, var,a,b,c, d, der,trid,delta);",2:"CompactDifference4thZ1st(block_name, var,a,b,c, d, der,trid,delta);"}
         wrap_temp =  self.wrap_function_1st
