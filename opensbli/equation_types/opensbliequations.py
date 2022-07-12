@@ -568,6 +568,7 @@ class ConstituentRelationsGradient(ConstituentRelations):
 
         :param SimulationBlock block: the block on which the equations are solved
         :return: None """
+        from opensbli.schemes.spatial.compact import CustomHalos
         # Instantiate the solution class
         (Solution, cls).__init__(cls)
         # Create the residual array for the equations
@@ -594,10 +595,15 @@ class ConstituentRelationsGradient(ConstituentRelations):
         for eq in flatten(equations):
             if not eq.kernels:
                 from opensbli.core.kernel import Kernel
-                CRKernel = Kernel(block, computation_name="%s evaluation" % eq.__class__.__name__)
+                CRKernel = Kernel(block, computation_name="%s evaluate local " % eq.__class__.__name__)
                 CRKernel.set_grid_range(block)
                 CRKernel.add_equation(eq)
                 CRKernel.update_block_datasets(block)
+                if spatialschemes[0]=='CompactScheme':
+                    local_halo = CustomHalos(3)
+                    for dir in range(0,block.ndim):
+                        CRKernel.set_halo_range(dir,0,local_halo)
+                        CRKernel.set_halo_range(dir,1,local_halo)
                 eq.kernels = CRKernel
         cls.equations = equations
         return
