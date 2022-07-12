@@ -337,7 +337,7 @@ class ImplicitKernel(Kernel):
     mulfactor = {0: 1, 1: 1}
     opsc_access = {'ins': "OPS_READ", "outs": "OPS_WRITE", "inouts": "OPS_RW"}
 
-    def __init__(self, scheme, block, computation_name=None):
+    def __init__(self, scheme, block, layer=0,computation_name=None):
         """ Set up the computational kernel"""
         copy_block_attributes_implicit(block, self)
 
@@ -348,6 +348,7 @@ class ImplicitKernel(Kernel):
         self.equations = []
         self.wrap_function_1st = scheme.wrap_function_1st
         self.halo_ranges = [[set(), set()] for d in range(block.ndim)]
+        self.layer = layer
         return
 
 
@@ -392,6 +393,7 @@ class ImplicitKernel(Kernel):
         code_str = code_str.replace("var",str(list(ins)[0]))
         code_str = code_str.replace("der",str(list(outs)[0]))
         code_str = code_str.replace("delta","Delta"+str(self.rhsdirection[0])+"block"+str(self.block_number))
+        code_str = code_str.replace("layer",str(self.layer))
         code+=[code_str]
 
 
