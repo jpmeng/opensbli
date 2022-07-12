@@ -65,7 +65,6 @@ class OPSCCompact(OPSC):
         code = []
         dtype = SimulationDataType.opsc()
         for key, val in (tuple_list):
-            Debug("Key=",key,"Type",type(key))
             # if any of the list has the datatype then use the data type
             if isinstance(key,DataSetBase):
                 if hasattr(key, "datatype") and key.datatype:

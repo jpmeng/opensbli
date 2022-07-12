@@ -191,8 +191,8 @@ schemes[rk.name] = rk
 boundaries = []
 # Create boundaries, one for each side per dimension, so in total 6 BC's for 3D'
 for direction in range(ndim):
-    boundaries += [PeriodicBC(direction, 0)]
-    boundaries += [PeriodicBC(direction, 1)]
+    boundaries += [CustomPeriodicBC(direction, 0,3)]
+    boundaries += [CustomPeriodicBC(direction, 1,3)]
 
 # set the boundaries for the block
 block.set_block_boundaries(boundaries)
