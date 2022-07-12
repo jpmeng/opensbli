@@ -595,7 +595,7 @@ class ConstituentRelationsGradient(ConstituentRelations):
         for eq in flatten(equations):
             if not eq.kernels:
                 from opensbli.core.kernel import Kernel
-                CRKernel = Kernel(block, computation_name="%s evaluate local " % eq.__class__.__name__)
+                CRKernel = Kernel(block, computation_name="%s evaluate local  CR" % eq.__class__.__name__)
                 CRKernel.set_grid_range(block)
                 CRKernel.add_equation(eq)
                 CRKernel.update_block_datasets(block)
