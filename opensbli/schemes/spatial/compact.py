@@ -56,75 +56,90 @@ varible_template="""ops_dat name_place;
 """
 
 kernel_derivative_x_template = """
-void PreprocessX4thCompact1st(const ACC<double> &u, ACC<double> &a, ACC<double> &b, ACC<double> &c, ACC<double> &d, ACC<double> &ux, int *idx, int* nx, double* dx) {
+void PreprocessX4thCompact1st(const ACC<double> &u, ACC<double> &a,
+                              ACC<double> &b, ACC<double> &c, ACC<double> &d,
+                              ACC<double> &ux, int *idx, int *nx, int *layer,
+                              double *dx) {
   const int i{idx[0]};
   d(0, 0, 0) = u(1, 0, 0) - u(-1, 0, 0);
-  ux(0,0,0) = 0;
-  if (i == 0) {
+  ux(0, 0, 0) = 0;
+  const int start{-(*layer)};
+  const int end { (*nx) + (*layer) - 1 };
+  if (i == start) {
     a(0, 0, 0) = 0;
     b(0, 0, 0) = 2 * (*dx);
     c(0, 0, 0) = 0;
 
-  } else if (i == ((*nx) - 1)) {
+  } else if (i == end) {
     a(0, 0, 0) = 0;
     b(0, 0, 0) = 2 * (*dx);
     c(0, 0, 0) = 0;
 
   } else {
-    a(0, 0, 0) = (*dx)/3;
-    b(0, 0, 0) = 4*(*dx)/3;
-    c(0, 0, 0) = (*dx)/3;
+    a(0, 0, 0) = (*dx) / 3;
+    b(0, 0, 0) = 4 * (*dx) / 3;
+    c(0, 0, 0) = (*dx) / 3;
   }
 }
 """
 
 kernel_derivative_y_template = """
-void PreprocessY4thCompact1st(const ACC<double> &u, ACC<double> &a, ACC<double> &b, ACC<double> &c, ACC<double> &d, ACC<double> &uy, int *idx, int* ny, double* dy) {
+void PreprocessY4thCompact1st(const ACC<double> &u, ACC<double> &a,
+                              ACC<double> &b, ACC<double> &c, ACC<double> &d,
+                              ACC<double> &uy, int *idx, int *ny, int *layer,
+                              double *dy) {
   const int j{idx[1]};
   d(0, 0, 0) = u(0, 1, 0) - u(0, -1, 0);
-  uy(0,0,0) = 0;
-  if (j == 0) {
+  uy(0, 0, 0) = 0;
+  const int start{-(*layer)};
+  const int end { (*ny) + (*layer) - 1 };
+  if (j == start) {
     a(0, 0, 0) = 0;
     b(0, 0, 0) = 2 * (*dy);
     c(0, 0, 0) = 0;
-  } else if (j == ((*ny) - 1)) {
+  } else if (j == end) {
     a(0, 0, 0) = 0;
     b(0, 0, 0) = 2 * (*dy);
     c(0, 0, 0) = 0;
   } else {
-    a(0, 0, 0) = (*dy)/3;
-    b(0, 0, 0) = 4*(*dy)/3;
-    c(0, 0, 0) = (*dy)/3;
+    a(0, 0, 0) = (*dy) / 3;
+    b(0, 0, 0) = 4 * (*dy) / 3;
+    c(0, 0, 0) = (*dy) / 3;
   }
 }
 """
 
 kernel_derivative_z_template = """
-void PreprocessZ4thCompact1st(const ACC<double> &u, ACC<double> &a, ACC<double> &b,ACC<double> &c, ACC<double> &d, ACC<double> &uz,int *idx,int* nz, double* dz) {
+void PreprocessZ4thCompact1st(const ACC<double> &u, ACC<double> &a,
+                              ACC<double> &b, ACC<double> &c, ACC<double> &d,
+                              ACC<double> &uz, int *idx, int *nz, int *layer,
+                              double *dz) {
   const int k{idx[2]};
   d(0, 0, 0) = u(0, 0, 1) - u(0, 0, -1);
-  uz(0,0,0) = 0;
-  if (k == 0) {
+  uz(0, 0, 0) = 0;
+  const int start{-(*layer)};
+  const int end { (*nz) + (*layer) - 1 };
+  if (k == start) {
     a(0, 0, 0) = 0;
     b(0, 0, 0) = 2 * (*dz);
     c(0, 0, 0) = 0;
 
-  } else if (k == ((*nz) - 1)) {
+  } else if (k == end) {
     a(0, 0, 0) = 0;
     b(0, 0, 0) = 2 * (*dz);
     c(0, 0, 0) = 0;
 
   } else {
-    a(0, 0, 0) = (*dz)/3;
-    b(0, 0, 0) = 4*(*dz)/3;
-    c(0, 0, 0) = (*dz)/3;
+    a(0, 0, 0) = (*dz) / 3;
+    b(0, 0, 0) = 4 * (*dz) / 3;
+    c(0, 0, 0) = (*dz) / 3;
   }
 }
 """
 kernel_templates = [kernel_derivative_x_template, kernel_derivative_y_template, kernel_derivative_z_template]
 
 wrap_function_template_x_4th_1st = """
-void CompactDifference4thX1st(ops_block& block, ops_dat& u, ops_dat& a, ops_dat& b,ops_dat& c, ops_dat& d, ops_dat& ux,ops_tridsolver_params* trid, double delta) {
+void CompactDifference4thX1st(ops_block& block, ops_dat& u, ops_dat& a, ops_dat& b,ops_dat& c, ops_dat& d, ops_dat& ux,ops_tridsolver_params* trid, double delta, int layer=0) {
   int* size{u->size};
   int* dm{u->d_m};
   int* dp{u->d_p};
@@ -132,7 +147,7 @@ void CompactDifference4thX1st(ops_block& block, ops_dat& u, ops_dat& a, ops_dat&
   for (int i = 0; i < spaceDim; i++) {
     size[i] = size[i] - dp[i] + dm[i];
   };
-  int iterRange[]{0, size[0], 0, size[1], 0, size[2]};
+  int iterRange[]{-layer, size[0]+layer, -layer, size[1]+layer, -layer, size[2]+layer};
   ops_par_loop(PreprocessX4thCompact1st, "preprocessX", block, 3, iterRange,
                ops_arg_dat(u, 1, neighbor_stencil, "double", OPS_READ),
                ops_arg_dat(a, 1, local_stencil, "double", OPS_WRITE),
@@ -141,13 +156,14 @@ void CompactDifference4thX1st(ops_block& block, ops_dat& u, ops_dat& a, ops_dat&
                ops_arg_dat(d, 1, local_stencil, "double", OPS_WRITE),
                ops_arg_dat(ux, 1, local_stencil, "double", OPS_WRITE), ops_arg_idx(),
                ops_arg_gbl(&size[0], 1, "int", OPS_READ),
+               ops_arg_gbl(&layer, 1, "int", OPS_READ),
                ops_arg_gbl(&delta, 1, "double", OPS_READ));
   ops_tridMultiDimBatch_Inc(spaceDim, 0, size, a, b, c, d, ux, trid);
 }
 """
 
 wrap_function_template_y_4th_1st = """
-void CompactDifference4thY1st(ops_block& block, ops_dat& u, ops_dat& a, ops_dat& b,ops_dat& c, ops_dat& d, ops_dat& uy, ops_tridsolver_params* trid, double delta) {
+void CompactDifference4thY1st(ops_block& block, ops_dat& u, ops_dat& a, ops_dat& b,ops_dat& c, ops_dat& d, ops_dat& uy, ops_tridsolver_params* trid, double delta, int layer=0) {
   int* size{u->size};
   int* dm{u->d_m};
   int* dp{u->d_p};
@@ -155,7 +171,7 @@ void CompactDifference4thY1st(ops_block& block, ops_dat& u, ops_dat& a, ops_dat&
   for (int i = 0; i < spaceDim; i++) {
     size[i] = size[i] - dp[i] + dm[i];
   };
-  int iterRange[]{0, size[0], 0, size[1], 0, size[2]};
+int iterRange[]{-layer, size[0]+layer, -layer, size[1]+layer, -layer, size[2]+layer};
   ops_par_loop(PreprocessY4thCompact1st, "preprocessY", block, 3, iterRange,
                ops_arg_dat(u, 1, neighbor_stencil, "double", OPS_READ),
                ops_arg_dat(a, 1, local_stencil, "double", OPS_WRITE),
@@ -164,6 +180,7 @@ void CompactDifference4thY1st(ops_block& block, ops_dat& u, ops_dat& a, ops_dat&
                ops_arg_dat(d, 1, local_stencil, "double", OPS_WRITE),
                ops_arg_dat(uy, 1, local_stencil, "double", OPS_WRITE), ops_arg_idx(),
                ops_arg_gbl(&size[1], 1, "int", OPS_READ),
+               ops_arg_gbl(&layer, 1, "int", OPS_READ),
                ops_arg_gbl(&delta, 1, "double", OPS_READ)
                );
   ops_tridMultiDimBatch_Inc(spaceDim, 0, size, a, b, c, d, uy, trid);
@@ -171,7 +188,7 @@ void CompactDifference4thY1st(ops_block& block, ops_dat& u, ops_dat& a, ops_dat&
 """
 
 wrap_function_template_z_4th_1st = """
-void CompactDifference4thZ1st(ops_block& block, ops_dat& u, ops_dat& a, ops_dat& b,ops_dat& c, ops_dat& d, ops_dat& uz,ops_tridsolver_params* trid, double delta) {
+void CompactDifference4thZ1st(ops_block& block, ops_dat& u, ops_dat& a, ops_dat& b,ops_dat& c, ops_dat& d, ops_dat& uz,ops_tridsolver_params* trid, double delta, int layer=0) {
   int* size{u->size};
   int* dm{u->d_m};
   int* dp{u->d_p};
@@ -179,7 +196,7 @@ void CompactDifference4thZ1st(ops_block& block, ops_dat& u, ops_dat& a, ops_dat&
   for (int i = 0; i < spaceDim; i++) {
     size[i] = size[i] - dp[i] + dm[i];
   };
-  int iterRange[]{0, size[0], 0, size[1], 0, size[2]};
+  int iterRange[]{-layer, size[0]+layer, -layer, size[1]+layer, -layer, size[2]+layer};
   ops_par_loop(PreprocessZ4thCompact1st, "preprocessZ", block, 3, iterRange,
                ops_arg_dat(u, 1, neighbor_stencil, "double", OPS_READ),
                ops_arg_dat(a, 1, local_stencil, "double", OPS_WRITE),
@@ -187,6 +204,7 @@ void CompactDifference4thZ1st(ops_block& block, ops_dat& u, ops_dat& a, ops_dat&
                ops_arg_dat(c, 1, local_stencil, "double", OPS_WRITE),
                ops_arg_dat(d, 1, local_stencil, "double", OPS_WRITE),
                ops_arg_dat(uz, 1, local_stencil, "double", OPS_WRITE), ops_arg_idx(), ops_arg_gbl(&size[2], 1, "int", OPS_READ),
+               ops_arg_gbl(&layer, 1, "int", OPS_READ),
                ops_arg_gbl(&delta, 1, "double", OPS_READ));
   ops_tridMultiDimBatch_Inc(spaceDim, 0, size, a, b, c, d, uz, trid);
 }
@@ -205,13 +223,27 @@ class CompactHalos(object):
             self.halos = [-1, 1]
         if order==6:
             self.halos = [-2, 2]
-        return
 
     def get_halos(self, side):
         return self.halos[side]
 
     def __str__(self):
         return "CompactHalos"
+
+class CustomHalos(object):
+    """Number of halo points required for the compact scheme. Assumes they are the same in all dimensions.
+  """
+
+    def __init__(self, layer):        # we assume that compact schemes always requires one halo by default
+
+        self.halos = [-layer, layer]
+
+    def get_halos(self, side):
+        return self.halos[side]
+
+    def __str__(self):
+        return "CustomHalos"
+
 
 
 
@@ -229,8 +261,8 @@ class Compact(Scheme):
         :arg int order: The order of accuracy of the scheme.
         """
         super().__init__("CompactScheme", order)
-
         print("A compact scheme of order %d is being used." % order)
+        self.haloNum = 1
         self.schemetype = "Spatial"
         # Points for the spatial scheme
         self.required_constituent_relations = {}
@@ -247,16 +279,16 @@ class Compact(Scheme):
         kernel.write("#endif\n")
         kernel.close()
         aString = varible_template.replace("name_place","a");
-        aString = aString.replace("halo_place",str(self.halotype.get_halos(1)))
+        aString = aString.replace("halo_place",str(5))
         bString = varible_template.replace("name_place","b");
-        bString = bString.replace("halo_place",str(self.halotype.get_halos(1)))
+        bString = bString.replace("halo_place",str(5))
         cString = varible_template.replace("name_place","c");
-        cString = cString.replace("halo_place",str(self.halotype.get_halos(1)))
+        cString = cString.replace("halo_place",str(5))
         dString = varible_template.replace("name_place","d");
-        dString = dString.replace("halo_place",str(self.halotype.get_halos(1)))
+        dString = dString.replace("halo_place",str(5))
         self.data_def = [aString,bString,cString,dString]
         self.wrap_templates_1st = [wrap_function_template_x_4th_1st, wrap_function_template_y_4th_1st, wrap_function_template_z_4th_1st]
-        self.wrap_function_1st = {0:"CompactDifference4thX1st(block_name, var,a,b,c, d, der,trid,delta);",1:"CompactDifference4thY1st(block_name, var,a,b,c, d, der,trid,delta);",2:"CompactDifference4thZ1st(block_name, var,a,b,c, d, der,trid,delta);"}
+        self.wrap_function_1st = {0:"CompactDifference4thX1st(block_name, var,a,b,c, d, der,trid,delta,layer);",1:"CompactDifference4thY1st(block_name, var,a,b,c, d, der,trid,delta,layer);",2:"CompactDifference4thZ1st(block_name, var,a,b,c, d, der,trid,delta,layer);"}
         wrap_temp =  self.wrap_function_1st
         for key, fun_def in wrap_temp.items():
             fun_def = fun_def.replace("trid",linear_solver.name)
@@ -285,13 +317,17 @@ class Compact(Scheme):
             block.store_work_index  # Store work
             local_kernels, discretised_eq = self.general_discretisation       (type_of_eq.equations, block, name=type_of_eq.__class__.__name__)
             block.reset_work_to_stored # Reset
+            ## if there are gradients in the CR laws
             if discretised_eq:
                 for ker in local_kernels:
                     eval_ker = local_kernels[ker]
                     type_of_eq.Kernels += [eval_ker]
                 # Might be CR
-                discretisation_kernel = Kernel(block, computation_name="%s evaluation" % type_of_eq.__class__.__name__)
+                discretisation_kernel = Kernel(block, computation_name="%s evaluation work variable for gradients" % type_of_eq.__class__.__name__)
                 discretisation_kernel.set_grid_range(block)
+                for dir in range(0,block.ndim):
+                    discretisation_kernel.set_halo_range(dir,0,self.halotype)
+                    discretisation_kernel.set_halo_range(dir,1,self.halotype)
                 for eq in discretised_eq:
                     discretisation_kernel.add_equation(eq)
                 discretisation_kernel.update_block_datasets(block)
@@ -468,14 +504,25 @@ class Compact(Scheme):
         """
         This discretises the central derivatives, without a special treatment of grouping them
         """
+
         discretized_equations = flatten(equations)[:]
         cts = self.get_local_function(flatten(equations))
+        extraLayer = False
+        if name == 'ConstituentRelationsGradient':
+            extraLayer = True
         if cts:
             local_kernels = {}
             if block.store_derivatives:
                 for der in cts:
                     der.update_work(block)
-                    ker = ImplicitKernel(self,block)
+                    layer = 0
+                    if extraLayer:
+                        ## hard code for compact scheme
+                        layer = 2;
+                    ker = ImplicitKernel(self,block,layer)
+                    # for dir in arange(0,block.ndim):
+                    #     ker.set_halo_range(dir,0,(2))
+                    #     ker.set_halo_range(dir,1,(2))
                     if name:
                         ker.set_computation_name("%s %s " % (name, der))
                     local_kernels[der] = ker  # Reverted back
