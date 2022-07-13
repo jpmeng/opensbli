@@ -42,14 +42,37 @@ stencil_template="""
     int neighbor[]{0, 0, 1, 0, -1, 0, 0, 1, 0, -1};
     ops_stencil neighbor_stencil{ops_decl_stencil(2, 5, neighbor, "2d5Point")};
 #endif
+#ifdef OPS_1D
+      int local[]{0};
+    ops_stencil local_stencil{ops_decl_stencil(1, 1, local, "0")};
+    // declare stencils for the central differencing
+    int neighbor[]{0, 1, -1};
+    ops_stencil neighbor_stencil{ops_decl_stencil(2, 3, neighbor, "1d3Point")};
+#endif
 """
 
 varible_template="""ops_dat name_place;
 {
+#ifdef OPS_3D
     int halo_p[] = {halo_place, halo_place, halo_place};
     int halo_m[] = {-halo_place, -halo_place, -halo_place};
     int size[] = {block0np0, block0np1, block0np2};
     int base[] = {0, 0, 0};
+#endif
+
+#ifdef OPS_2D
+    int halo_p[] = {halo_place, halo_place};
+    int halo_m[] = {-halo_place, -halo_place};
+    int size[] = {block0np0, block0np1};
+    int base[] = {0, 0};
+#endif
+
+#ifdef OPS_1D
+    int halo_p[] = {halo_place};
+    int halo_m[] = {-halo_place};
+    int size[] = {block0np0};
+    int base[] = {0};
+#endif
     double* value = NULL;
     name_place = ops_decl_dat(opensbliblock00, 1, size, base, halo_m, halo_p, value, "double", "name_place");
 }
@@ -61,10 +84,11 @@ void PreprocessX4thCompact1st(const ACC<double> &u, ACC<double> &a,
                               ACC<double> &ux, int *idx, int *nx, int *layer,
                               double *dx) {
   const int i{idx[0]};
+#ifdef OPS_3D
   d(0, 0, 0) = u(1, 0, 0) - u(-1, 0, 0);
   ux(0, 0, 0) = 0;
   const int start{-(*layer)};
-  const int end { (*nx) + (*layer) - 1 };
+  const int end{(*nx) + (*layer) - 1};
   if (i == start) {
     a(0, 0, 0) = 0;
     b(0, 0, 0) = 2 * (*dx);
@@ -80,6 +104,50 @@ void PreprocessX4thCompact1st(const ACC<double> &u, ACC<double> &a,
     b(0, 0, 0) = 4 * (*dx) / 3;
     c(0, 0, 0) = (*dx) / 3;
   }
+#endif  // OPS_3D
+#ifdef OPS_2D
+  d(0, 0) = u(1, 0) - u(-1, 0);
+  ux(0, 0) = 0;
+  const int start{-(*layer)};
+  const int end{(*nx) + (*layer) - 1};
+  if (i == start) {
+    a(0, 0) = 0;
+    b(0, 0) = 2 * (*dx);
+    c(0, 0) = 0;
+
+  } else if (i == end) {
+    a(0, 0) = 0;
+    b(0, 0) = 2 * (*dx);
+    c(0, 0) = 0;
+
+  } else {
+    a(0, 0) = (*dx) / 3;
+    b(0, 0) = 4 * (*dx) / 3;
+    c(0, 0) = (*dx) / 3;
+  }
+#endif  // OPS_2D
+
+#ifdef OPS_1D
+  d(0) = u(1) - u(-1);
+  ux(0) = 0;
+  const int start{-(*layer)};
+  const int end{(*nx) + (*layer) - 1};
+  if (i == start) {
+    a(0) = 0;
+    b(0) = 2 * (*dx);
+    c(0) = 0;
+
+  } else if (i == end) {
+    a(0) = 0;
+    b(0) = 2 * (*dx);
+    c(0) = 0;
+
+  } else {
+    a(0) = (*dx) / 3;
+    b(0) = 4 * (*dx) / 3;
+    c(0) = (*dx) / 3;
+  }
+#endif  // OPS_1D
 }
 """
 
@@ -88,11 +156,12 @@ void PreprocessY4thCompact1st(const ACC<double> &u, ACC<double> &a,
                               ACC<double> &b, ACC<double> &c, ACC<double> &d,
                               ACC<double> &uy, int *idx, int *ny, int *layer,
                               double *dy) {
-  const int j{idx[1]};
+ const int j{idx[1]};
+#ifdef OPS_3D
   d(0, 0, 0) = u(0, 1, 0) - u(0, -1, 0);
   uy(0, 0, 0) = 0;
   const int start{-(*layer)};
-  const int end { (*ny) + (*layer) - 1 };
+  const int end{(*ny) + (*layer) - 1};
   if (j == start) {
     a(0, 0, 0) = 0;
     b(0, 0, 0) = 2 * (*dy);
@@ -106,19 +175,44 @@ void PreprocessY4thCompact1st(const ACC<double> &u, ACC<double> &a,
     b(0, 0, 0) = 4 * (*dy) / 3;
     c(0, 0, 0) = (*dy) / 3;
   }
+#endif  // OPS_3D
+
+#ifdef OPS_2D
+  const int j{idx[1]};
+  d(0, 0) = u(0, 1) - u(0, -1);
+  uy(0, 0) = 0;
+  const int start{-(*layer)};
+  const int end{(*ny) + (*layer) - 1};
+  if (j == start) {
+    a(0, 0) = 0;
+    b(0, 0) = 2 * (*dy);
+    c(0, 0) = 0;
+  } else if (j == end) {
+    a(0, 0) = 0;
+    b(0, 0) = 2 * (*dy);
+    c(0, 0) = 0;
+  } else {
+    a(0, 0) = (*dy) / 3;
+    b(0, 0) = 4 * (*dy) / 3;
+    c(0, 0) = (*dy) / 3;
+  }
+#endif  // OPS_2D
 }
 """
 
 kernel_derivative_z_template = """
+#ifdef OPS_3D
+
 void PreprocessZ4thCompact1st(const ACC<double> &u, ACC<double> &a,
                               ACC<double> &b, ACC<double> &c, ACC<double> &d,
                               ACC<double> &uz, int *idx, int *nz, int *layer,
                               double *dz) {
+#ifdef OPS_3D
   const int k{idx[2]};
   d(0, 0, 0) = u(0, 0, 1) - u(0, 0, -1);
   uz(0, 0, 0) = 0;
   const int start{-(*layer)};
-  const int end { (*nz) + (*layer) - 1 };
+  const int end{(*nz) + (*layer) - 1};
   if (k == start) {
     a(0, 0, 0) = 0;
     b(0, 0, 0) = 2 * (*dz);
@@ -134,7 +228,10 @@ void PreprocessZ4thCompact1st(const ACC<double> &u, ACC<double> &a,
     b(0, 0, 0) = 4 * (*dz) / 3;
     c(0, 0, 0) = (*dz) / 3;
   }
+#endif  // OPS_3D Z
 }
+#endif // OPS_3D Z
+
 """
 kernel_templates = [kernel_derivative_x_template, kernel_derivative_y_template, kernel_derivative_z_template]
 
@@ -144,11 +241,16 @@ void CompactDifference4thX1st(ops_block& block, ops_dat& u, ops_dat& a, ops_dat&
   int* dm{u->d_m};
   int* dp{u->d_p};
   int spaceDim{block->dims};
+  int* tridSize{new int[spaceDim]};
   for (int i = 0; i < spaceDim; i++) {
-    size[i] = size[i] - dp[i] + dm[i];
+    tridSize[i] = size[i] - dp[i] + dm[i];
   };
-  int iterRange[]{-layer, size[0]+layer, -layer, size[1]+layer, -layer, size[2]+layer};
-  ops_par_loop(PreprocessX4thCompact1st, "preprocessX", block, 3, iterRange,
+  int* iterRange {new int[2*spaceDim]};
+  for (int i = 0; i < spaceDim; i++) {
+    iterRange[2*i] = -layer;
+    iterRange[2*i+1] = size[0] + layer;
+  };
+  ops_par_loop(PreprocessX4thCompact1st, "preprocessX", block, SPACEDIM, iterRange,
                ops_arg_dat(u, 1, neighbor_stencil, "double", OPS_READ),
                ops_arg_dat(a, 1, local_stencil, "double", OPS_WRITE),
                ops_arg_dat(b, 1, local_stencil, "double", OPS_WRITE),
@@ -158,8 +260,11 @@ void CompactDifference4thX1st(ops_block& block, ops_dat& u, ops_dat& a, ops_dat&
                ops_arg_gbl(&size[0], 1, "int", OPS_READ),
                ops_arg_gbl(&layer, 1, "int", OPS_READ),
                ops_arg_gbl(&delta, 1, "double", OPS_READ));
-  ops_tridMultiDimBatch_Inc(spaceDim, 0, size, a, b, c, d, ux, trid);
+  ops_tridMultiDimBatch_Inc(spaceDim, 0, tridSize, a, b, c, d, ux, trid);
+  delete[] iterRange;
+  delete[] tridSize;
 }
+
 """
 
 wrap_function_template_y_4th_1st = """
@@ -168,11 +273,16 @@ void CompactDifference4thY1st(ops_block& block, ops_dat& u, ops_dat& a, ops_dat&
   int* dm{u->d_m};
   int* dp{u->d_p};
   int spaceDim{block->dims};
+  int* tridSize{new int[spaceDim]};
   for (int i = 0; i < spaceDim; i++) {
-    size[i] = size[i] - dp[i] + dm[i];
+    tridSize[i] = size[i] - dp[i] + dm[i];
   };
-int iterRange[]{-layer, size[0]+layer, -layer, size[1]+layer, -layer, size[2]+layer};
-  ops_par_loop(PreprocessY4thCompact1st, "preprocessY", block, 3, iterRange,
+  int* iterRange {new int[2*spaceDim]};
+  for (int i = 0; i < spaceDim; i++) {
+    iterRange[2*i] = -layer;
+    iterRange[2*i+1] = size[0] + layer;
+  };
+  ops_par_loop(PreprocessY4thCompact1st, "preprocessY", block, SPACEDIM, iterRange,
                ops_arg_dat(u, 1, neighbor_stencil, "double", OPS_READ),
                ops_arg_dat(a, 1, local_stencil, "double", OPS_WRITE),
                ops_arg_dat(b, 1, local_stencil, "double", OPS_WRITE),
@@ -183,7 +293,9 @@ int iterRange[]{-layer, size[0]+layer, -layer, size[1]+layer, -layer, size[2]+la
                ops_arg_gbl(&layer, 1, "int", OPS_READ),
                ops_arg_gbl(&delta, 1, "double", OPS_READ)
                );
-  ops_tridMultiDimBatch_Inc(spaceDim, 0, size, a, b, c, d, uy, trid);
+  ops_tridMultiDimBatch_Inc(spaceDim, 0, tridSize, a, b, c, d, uy, trid);
+  delete[] iterRange;
+  delete[] tridSize;
 }
 """
 
@@ -193,11 +305,16 @@ void CompactDifference4thZ1st(ops_block& block, ops_dat& u, ops_dat& a, ops_dat&
   int* dm{u->d_m};
   int* dp{u->d_p};
   int spaceDim{block->dims};
+  int* tridSize{new int[spaceDim]};
   for (int i = 0; i < spaceDim; i++) {
-    size[i] = size[i] - dp[i] + dm[i];
+    tridSize[i] = size[i] - dp[i] + dm[i];
   };
-  int iterRange[]{-layer, size[0]+layer, -layer, size[1]+layer, -layer, size[2]+layer};
-  ops_par_loop(PreprocessZ4thCompact1st, "preprocessZ", block, 3, iterRange,
+int* iterRange {new int[2*spaceDim]};
+  for (int i = 0; i < spaceDim; i++) {
+    iterRange[2*i] = -layer;
+    iterRange[2*i+1] = size[0] + layer;
+  };
+  ops_par_loop(PreprocessZ4thCompact1st, "preprocessZ", block, SPACEDIM, iterRange,
                ops_arg_dat(u, 1, neighbor_stencil, "double", OPS_READ),
                ops_arg_dat(a, 1, local_stencil, "double", OPS_WRITE),
                ops_arg_dat(b, 1, local_stencil, "double", OPS_WRITE),
@@ -206,8 +323,11 @@ void CompactDifference4thZ1st(ops_block& block, ops_dat& u, ops_dat& a, ops_dat&
                ops_arg_dat(uz, 1, local_stencil, "double", OPS_WRITE), ops_arg_idx(), ops_arg_gbl(&size[2], 1, "int", OPS_READ),
                ops_arg_gbl(&layer, 1, "int", OPS_READ),
                ops_arg_gbl(&delta, 1, "double", OPS_READ));
-  ops_tridMultiDimBatch_Inc(spaceDim, 0, size, a, b, c, d, uz, trid);
+  ops_tridMultiDimBatch_Inc(spaceDim, 0, tridSize, a, b, c, d, uz, trid);
+  delete[] iterRange;
+  delete[] tridSize;
 }
+
 """
 
 
@@ -255,7 +375,7 @@ class Compact(Scheme):
     During the construction process, users can choose the proper linear solver by the linear_solver argument
     """
 
-    def __init__(self, order, linear_solver):
+    def __init__(self, order, linear_solver,space_dim=3):
         """ Set up the scheme.
 
         :arg int order: The order of accuracy of the scheme.
@@ -287,7 +407,7 @@ class Compact(Scheme):
         dString = varible_template.replace("name_place","d");
         dString = dString.replace("halo_place",str(5))
         self.data_def = [aString,bString,cString,dString]
-        self.wrap_templates_1st = [wrap_function_template_x_4th_1st, wrap_function_template_y_4th_1st, wrap_function_template_z_4th_1st]
+        self.wrap_templates_1st = [wrap_function_template_x_4th_1st.replace("SPACEDIM",str(space_dim)), wrap_function_template_y_4th_1st.replace("SPACEDIM",str(space_dim)), wrap_function_template_z_4th_1st.replace("SPACEDIM",str(space_dim))]
         self.wrap_function_1st = {0:"CompactDifference4thX1st(block_name, var,a,b,c, d, der,trid,delta,layer);",1:"CompactDifference4thY1st(block_name, var,a,b,c, d, der,trid,delta,layer);",2:"CompactDifference4thZ1st(block_name, var,a,b,c, d, der,trid,delta,layer);"}
         wrap_temp =  self.wrap_function_1st
         for key, fun_def in wrap_temp.items():
