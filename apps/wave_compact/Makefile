@@ -4,6 +4,8 @@
 # OPS_INSTALL_PATH
 # OPS_COMPILER (gnu,intel,etc)
 #
+TRID_INC := -I$(TRID_INSTALL_PATH)/include
+TRID_LIB := -L$(TRID_INSTALL_PATH)/lib
 
 USE_HDF5=1
 include $(OPS_INSTALL_PATH)/../makefiles/Makefile.common
@@ -15,9 +17,9 @@ include $(OPS_INSTALL_PATH)/../makefiles/Makefile.hdf5
 
 HEADERS = opensbliblock00_kernels.h defdec_data_set.h
 
-OTHER_FILES = 
-OPS_GENERATED = opensbli_ops.cpp 
-OPS_FILES = opensbli.cpp 
+OTHER_FILES =
+OPS_GENERATED = opensbli_ops.cpp
+OPS_FILES = opensbli.cpp
 
 
 APP=opensbli

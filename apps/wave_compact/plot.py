@@ -1,6 +1,6 @@
 """ Reads in the 1D wave equation solution data, written by the OPS dat writer,
 and plots the scalar field 'phi'. """
-
+from __future__ import print_function
 import numpy
 from math import pi, sin
 import matplotlib.pyplot as plt
@@ -8,6 +8,8 @@ import h5py
 import glob
 import sys
 import os.path
+
+
 
 
 def plot(path):
@@ -18,9 +20,10 @@ def plot(path):
     halo = 5
 
     # Read in the simulation output
+    print(path)
     dump = glob.glob(path + "/opensbli_output.h5")
     if not dump or len(dump) > 1:
-        print "Error: No dump file found, or more than one dump file found."
+        print("Error: No dump file found, or more than one dump file found.")
         sys.exit(1)
     f = h5py.File(dump[-1], 'r')
     group = f["opensbliblock00"]
@@ -60,7 +63,9 @@ def plot(path):
 
     plt.clf()
     plt.plot(x, phi_initial, "--k", label=r"$\phi(x,\ t=0)$")
-    plt.plot(x, phi, "-k", label=r"$\phi(x,\ t=1)$")
+    plt.plot(x[0:-1:3], phi[0:-1:3], color="k",marker='o',lw=0,label=r"$\phi(x,\ t=1)$")
+    plt.plot(x, phi_analytical, "-k", label=r"$ans(x,\ t=1)$")
+
     plt.xlabel(r"$x$ (m)")
     plt.ylabel(r"Wave amplitude $\phi$")
     plt.legend()

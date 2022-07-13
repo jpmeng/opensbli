@@ -79,7 +79,7 @@ block.setio([h5])
 
 schemes = {}
 if len(sys.argv)>1:
-    compact = Compact(4, trid)
+    compact = Compact(4, trid,ndim)
     schemes[compact.name] = compact
 else:
     cent = Central(4)
