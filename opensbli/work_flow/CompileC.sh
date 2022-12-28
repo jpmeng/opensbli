@@ -1,6 +1,6 @@
 ##@brief compile generated OPS C/C++ code
 ##@author Jianping Meng
-##@contributors
+##@contributors Pushpender Sharma Teja Ala
 ##@details
 #!/bin/bash
 
@@ -23,10 +23,15 @@ then
     module load PrgEnv-gnu
     module load cray-hdf5-parallel
 fi
-# if [ $machine == "Ubuntu" ]
-# then
-#     sudo apt install libhdf5-openmpi-dev libhdf5-mpi-dev build-essential
-# fi
+
+if [ $machine == "IRIDIS5" ]
+then
+    module load gcc/6.4.0
+    module load hdf5/1.10.2/gcc/parallel
+    module load cuda/10.0
+    module load cmake
+fi
+
 cp $EnvDir/CMakeLists.txt .
 mkdir build
 cd build

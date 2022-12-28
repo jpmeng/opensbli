@@ -1,6 +1,6 @@
 ##@brief Download, compile and install OPS library
 ##@author Jianping Meng
-##@contributors
+##@contributors Pushpender Sharma Teja Ala
 ##@details
 #!/bin/bash
 if [ $# -eq 0 ]
@@ -35,6 +35,20 @@ if [ $machine == "Ubuntu" ]
 then
     sudo apt install libhdf5-openmpi-dev libhdf5-mpi-dev build-essential
 fi
+
+if [ $machine == "IRIDIS5" ]
+then
+    module load gcc/6.4.0
+    module load hdf5/1.10.2/gcc/parallel
+    module load cuda/10.0
+    module load cmake
+fi
+
+if [ $machine == "Fedora" ]
+then
+    sudo dnf install hdf5-openmpi-devel hdf5-devel make automake gcc gcc-c++ kernel-devel
+fi
+
 
 wget -c https://github.com/OP-DSL/OPS/archive/refs/heads/develop.zip
 unzip develop.zip
