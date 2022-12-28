@@ -1,8 +1,9 @@
+#!/bin/bash
 ##@brief Download and install a specific version of CMake
 ##@author Jianping Meng
 ##@contributors
 ##@details
-#!/bin/bash
+
 if [ $# -ne 3 ]
 then
     echo "This script will download, compile and install CMake to a specified directory!"

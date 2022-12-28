@@ -1,8 +1,9 @@
+#!/bin/bash
 ##@brief compile generated OPS C/C++ code
 ##@author Jianping Meng
 ##@contributors Pushpender Sharma Teja Ala
 ##@details
-#!/bin/bash
+
 
 if [ $# -ne 2 ]
 then

@@ -1,8 +1,9 @@
+#!/bin/bash
 ##@brief Download, compile and install OPS library
 ##@author Jianping Meng
 ##@contributors Pushpender Sharma Teja Ala
 ##@details
-#!/bin/bash
+
 if [ $# -eq 0 ]
 then
     echo "This script will download, compile and install the OPS library to a specified directory!"
