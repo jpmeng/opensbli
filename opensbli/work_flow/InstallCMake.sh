@@ -23,7 +23,7 @@ mkdir $cmake_dir
 sh ./cmake-$version-Linux-x86_64.sh --prefix=$cmake_dir  --skip-license
 if [ $user == "N" ]
 then
-    if [ ! -d "/usr/local//bin" ]
+    if [ ! -d "/usr/local/bin" ]
     then
         mkdir -p /usr/local/bin
     fi

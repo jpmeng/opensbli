@@ -4,26 +4,51 @@
 ##@contributors Pushpender Sharma Teja Ala
 ##@details
 
+function usage {
+    echo "This script will download, compile and install the OPS library to a specified directory!"
+    echo "./$(basename $0) -h -> Showing usage"
+    echo "./$(basename $0) -d -> Specifying the directory for installation"
+    echo "./$(basename $0) -c -> Specifying the compiler"
+    echo "./$(basename $0) -m -> Specifying the machine type"
+    echo "Machine type can be: Ubuntu (default) ARCHER2 IRIDIS5 Fedora"
+}
+optstring=":dcmh"
+Compiler="Gnu"
+Dir="$HOME/OPS_INSTALL"
+Machine="Ubuntu"
+
+while getopts ${optstring} options; do
+    case ${options} in
+        h)
+            usage
+            exit 0
+        ;;
+        c)
+            Compiler=${OPTARG}
+        ;;
+        m)
+            Machine=${OPTARG}
+        ;;
+        d)
+            Dir=${OPTARG}
+        ;;
+        :)
+            echo "$0: Must supply an argument to -$OPTARG." >&2
+            exit 1
+        ;;
+        ?)
+            echo "Invalid option: -${OPTARG}."
+            exit 2
+        ;;
+    esac
+done
+
 if [ $# -eq 0 ]
 then
-    echo "This script will download, compile and install the OPS library to a specified directory!"
-    echo "Usage: ./InstallOPS.sh Dir  MachineType"
-    echo "Dir: the directory to install OPS ($HOME/OPS_INSTALL by default!)"
-    echo "MachineType (Ubuntu ARCHER2) Ubuntu by default"
-    exit 1
-fi
-dir=$HOME/OPS_INSTALL
-if [ $# -eq 1 ]
-then
-    dir=$1
-fi
-machine="Ubuntu"
-if [ $# -eq 2 ]
-then
-    machine=$2
+    echo "This script will download, compile with ${Compiler} and install the OPS library to to ${Dir}!"
 fi
 
-if [ $machine == "ARCHER2" ]
+if [ $Machine == "ARCHER2" ]
 then
     module purge PrgEnv-cray
     module load load-epcc-module
@@ -32,12 +57,12 @@ then
     module load cray-hdf5-parallel
 fi
 
-if [ $machine == "Ubuntu" ]
+if [ $Machine == "Ubuntu" ]
 then
     sudo apt install libhdf5-openmpi-dev libhdf5-mpi-dev build-essential
 fi
 
-if [ $machine == "IRIDIS5" ]
+if [ $Machine == "IRIDIS5" ]
 then
     module load gcc/6.4.0
     module load hdf5/1.10.2/gcc/parallel
@@ -45,7 +70,7 @@ then
     module load cmake
 fi
 
-if [ $machine == "Fedora" ]
+if [ $Machine == "Fedora" ]
 then
     sudo dnf install hdf5-openmpi-devel hdf5-devel make automake gcc gcc-c++ kernel-devel
 fi

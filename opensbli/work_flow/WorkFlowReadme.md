@@ -6,6 +6,8 @@ Copy CreateOpenSBLIEnv.sh into a directory, make it executable and run, for exam
 
 We note that the first argument of the script (i.e., the directory) must use absolute path.
 
+Currently only the OPS library and the OpenSBLI framework are installed inside the directory.
+
 ```bash
 ./CreateOpenSBLIEnv.sh ~/tmp/OpenSBLIEnv
 ```
@@ -18,7 +20,8 @@ cd opensbli-cpc_release/apps/transitional_SBLI/
 ../../../Translate.sh ~/tmp/OpenSBLIEnv transitional_SBLI.py
 ../../../CompileC.sh ~/tmp/OpenSBLIEnv ARCHER2
 ```
-- Step 3 Compile the C/C++ code
+
+ Step 3 Compile the C/C++ code
 
 ```bash
 # Under the environment directory
