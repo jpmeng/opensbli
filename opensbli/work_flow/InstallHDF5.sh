@@ -12,7 +12,7 @@ function usage {
     echo "./$(basename $0) -f -> Enabling the Fortran support."
     echo "./$(basename $0) -s -> Compiling in the sequential mode (note OPS requires the parallel by default if using CMake)."
 }
-optstring=":v:dfsh"
+optstring="v:d:fsh"
 HDF5Ver="1.12.1"
 Dir="$HOME/HDF5"
 Parallel="ON"
@@ -51,13 +51,17 @@ if [ $# -eq 0 ]
 then
     echo "We will install parallel hdf5-${HDF5Ver} to ${Dir} without Fortran support."
 fi
-if [ ${Parallel} == "ON" ]
+if ! grep "CreateOpenSBLIEnv" /proc/$PPID/cmdline
 then
+  if [[ "${Parallel}" == "ON" ]]
+  then
     echo "Depending on the system, we might need to set CC=mpicc to compile in parallel mode."
     echo "Typically in a desktop we need to run the script as CC=mpicc ./InstallHDF5.sh"
     echo "However, in ARCHER2, we just need to run ./InstallHDF5.sh"
     sleep 5
+  fi
 fi
+
 
 
 MainVer="${HDF5Ver:0:$((${#HDF5Ver}-2))}"
