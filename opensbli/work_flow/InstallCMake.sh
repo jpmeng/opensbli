@@ -4,39 +4,96 @@
 ##@contributors
 ##@details
 
-if [ $# -ne 3 ]
+function usage {
+    echo "This script will download and install CMake to a specified directory!"
+    echo "./$(basename $0) -h -> Showing usage"
+    echo "./$(basename $0) -d -> Specifying the directory for installation"
+    echo "./$(basename $0) -v -> Specifying the version (3.20.0 by default)"
+    echo "./$(basename $0) -s -> enable installation in the system directory (e.g., /usr/local/)"
+    echo "The default directory for installation is \$HOME/CMake in user directory and /usr/local/CMake in system directory"
+    echo "if choosing system directory to install, sudo is needed"
+}
+optstring="hd:v:s"
+User="Y"
+Version="3.20.0"
+
+while getopts ${optstring} options; do
+    case ${options} in
+        h)
+            usage
+            exit 0
+        ;;
+        d)
+            Dir=${OPTARG}
+        ;;
+        v)
+            Version=${OPTARG}
+        ;;
+        s)
+            User="N"
+        ;;
+        :)
+            echo "$0: Must supply an argument to -$OPTARG." >&2
+            exit 1
+        ;;
+        ?)
+            echo "Invalid option: -${OPTARG}."
+            exit 2
+        ;;
+    esac
+done
+
+if [ -z "$Dir" ]
 then
-    echo "This script will download, compile and install CMake to a specified directory!"
-    echo "Usage: ./InstallCMake.sh Dir Version User"
-    echo "Dir: the directory to install CMake!"
-    echo "Version: the CMake version"
-    echo "Version number might be 3.23.0 3.21.0 3.20.0 3.19.0 ..."
-    echo "User (Y/N): if the installation is in user space! If not, we need to sudo!"
-    exit 1
-fi
-cmake_dir=$1
-version=$2
-user=$3
-wget -c https://github.com/Kitware/CMake/releases/download/v$version/cmake-$version-Linux-x86_64.sh
-# sudo is not necessary for directories in user space.
-mkdir $cmake_dir
-sh ./cmake-$version-Linux-x86_64.sh --prefix=$cmake_dir  --skip-license
-if [ $user == "N" ]
-then
-    if [ ! -d "/usr/local/bin" ]
-    then
-        mkdir -p /usr/local/bin
-    fi
-    ln -s $cmake_dir/bin/cmake /usr/local/bin/cmake
+   if [[ "$User" == "Y" ]]
+   then
+       Dir="$HOME/CMake"
+   fi
+   if [[ "$User" == "N" ]]
+   then
+       Dir="/usr/local/CMake"
+   fi
 fi
 
-if [ $user=="Y" ]
+if [ $# -eq 0 ]
+then
+    echo "This script will download and install CMake-$Version to ${Dir}!"
+fi
+
+wget -c https://github.com/Kitware/CMake/releases/download/v$Version/cmake-$Version-Linux-x86_64.sh
+
+if [ ! -d "$Dir" ]
+then
+    rm -r -f "$Dir"
+fi
+mkdir $Dir
+sh ./cmake-$Version-Linux-x86_64.sh --prefix=$Dir  --skip-license
+
+if [[ "$User" == "Y" ]]
 then
     if [ ! -d "$HOME/bin" ]
     then
         mkdir -p $HOME/bin
     fi
-    ln -s $cmake_dir/bin/cmake $HOME/bin/cmake
+    if [  -f "$HOME/bin/cmake" ]
+    then
+        rm $HOME/bin/cmake
+    fi
+    ln -s $Dir/bin/cmake $HOME/bin/cmake
     echo "Please add $HOME/bin to path for enabling CMake"
 fi
-rm cmake-$version-Linux-x86_64.sh
+
+if [[ "$User" == "N" ]]
+then
+   if [ ! -d "/usr/local/bin" ]
+   then
+        mkdir -p /usr/local/bin
+   fi
+   if [  -f "/usr/local/bin/cmake" ]
+   then
+       rm -r -f /usr/local/bin/cmake
+   fi
+   ln -s $Dir/bin/cmake /usr/local/bin/cmake
+fi
+
+rm cmake-$Version-Linux-x86_64.sh
