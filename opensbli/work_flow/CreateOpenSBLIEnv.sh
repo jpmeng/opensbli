@@ -19,10 +19,12 @@ function usage {
 #./InstallHDF5.sh
 optstring="hb:o:d:p:HC:m:"
 Compiler="Gnu"
+Branch="cpc_release"
 Dir="$HOME/OpenSBLI"
 Machine="Ubuntu"
 LocalHDF5="OFF"
 PythonVer="3"
+OpsBranch="develop"
 
 while getopts ${optstring} options; do
     case ${options} in
@@ -38,6 +40,12 @@ while getopts ${optstring} options; do
         ;;
         d)
             Dir=${OPTARG}
+        ;;
+        b)
+            Branch=${OPTARG}
+        ;;
+        o)
+            OpsBranch=${OPTARG}
         ;;
         H)
             LocalHDF5="ON"
@@ -106,8 +114,14 @@ fi
 # Python
 ./InstallPython.sh -d $Dir/Python
 # OPS
-./InstallOPS.sh -d $Dir/OPS-INSTALL -m ${Machine} ${WithHDF5}
+./InstallOPS.sh -d $Dir/OPS-INSTALL -m ${Machine} ${WithHDF5} -b ${OpsBranch}
 # OpenSBLI
+wget -c https://github.com/opensbli/opensbli/archive/refs/heads/${Branch}.zip
+FileName="$(basename -- $Branch)"
+unzip "${FileName}.zip"
+rm -r -f "${FileName}.zip"
+DefaultOpenSBLIDir=opensbli-`echo ${Branch} | sed  's/\//-/g'`
+mv ${DefaultOpenSBLIDir} ${Dir}/OpenSBLI
 #wget -c https://github.com/opensbli/opensbli/archive/refs/heads/cpc_release.zip
 #unzip cpc_release.zip
 #rm cpc_release.zip
