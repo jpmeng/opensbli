@@ -12,7 +12,7 @@ function usage {
 }
 optstring="hd:p"
 Dir="$HOME/Python"
-PackageName="Miniconda3-py38_4.9.2-Linux-x86_64.sh"
+PackageName="Miniconda3-py37_22.11.1-1-Linux-x86_64.sh" # 3.7
 
 while getopts ${optstring} options; do
     case ${options} in
