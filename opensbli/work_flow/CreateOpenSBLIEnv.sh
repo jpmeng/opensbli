@@ -4,6 +4,8 @@
 ##@contributors
 ##@details
 
+## TODO: compiler support
+
 function usage {
     echo "This script will download, compile and install the OPS library to a specified directory!"
     echo "./$(basename $0) -h -> Showing usage"
@@ -16,7 +18,7 @@ function usage {
     echo "./$(basename $0) -m -> Specifying the machine type"
     echo "Machine type can be: Ubuntu (default) ARCHER2 IRIDIS5 Fedora"
 }
-#./InstallHDF5.sh
+
 optstring="hb:o:d:p:HC:m:"
 Compiler="Gnu"
 Branch="cpc_release"
@@ -63,6 +65,8 @@ while getopts ${optstring} options; do
         ;;
     esac
 done
+# Set the default machine in CompileC.sh
+sed -i "s/Machine=\"ARCHER2\"/Machine=\"${Machine}\"/g" CompileC.sh
 ## Install Gnu compiler provided by system
 if [ $Machine == "Ubuntu" ]
 then
@@ -71,7 +75,7 @@ then
     then
         HDF5Lib=""
     fi
-    sudo apt install libhdf5-openmpi-dev  build-essential
+    sudo apt install libhdf5-openmpi-dev build-essential
 fi
 if [ $Machine == "Fedora" ]
 then
