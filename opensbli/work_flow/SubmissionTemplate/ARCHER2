@@ -1,0 +1,23 @@
+#!/bin/bash
+#
+# Parallel script produced by bolt
+#        Resource: ARCHER2 (HPE Cray EX (128-core per node))
+#    Batch system: Slurm
+#
+# bolt is written by EPCC (http://www.epcc.ed.ac.uk)
+#
+#SBATCH --nodes={{ Nodes }}
+#SBATCH --tasks-per-node={{ TasksPerNode }}
+#SBATCH --cpus-per-task= {{ CpusPerTask }}
+#SBATCH --job-name={{ JobName }}
+#SBATCH --account={{ Account }}
+#SBATCH --partition={{ Partition }}
+#SBATCH --qos={{ QoS }}
+#SBATCH --time={{ Time }}
+
+
+export OMP_NUM_THREADS=1
+
+# Run the parallel program
+srun {{ Program }}
+

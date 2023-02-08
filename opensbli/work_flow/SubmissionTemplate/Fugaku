@@ -1,0 +1,23 @@
+#!/bin/sh -x
+#PJM -g "<enter project ID>"
+#PJM -L "rscgrp=small"
+#PJM -L "node=240"
+#PJM --mpi "max-proc-per-node=4"
+#PJM --mpi "proc=960"
+#PJM -L "node-mem=28Gi"
+#PJM -L "elapse=259000"
+#PJM -N "OpenSBLI"
+#PJM -s
+#PJM -j
+
+module purge
+module load lang/tcsds-1.2.36
+source ~/.bashrc
+
+export PARALLEL=12
+export OMP_NUM_THREADS=${PARALLEL}         # Specify the number of threads
+
+# Compile the code
+make -B opensbli_mpi_inline
+
+mpiexec -stdout-proc mpi_inline.log -stderr-proc error.log -n 960 ./opensbli_mpi_inline OPS_FORCE_DECOMP_Y=1

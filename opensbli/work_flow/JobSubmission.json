@@ -1,0 +1,12 @@
+{
+    "Machine":"ARCHER2",
+    "Nodes" : 64,
+    "TasksPerNode":128,
+    "CpusPerTask":1,
+    "JobName":"TGV",
+    "Account":"c01-eng",
+    "QoS":"standard",
+    "Partition": "standard",
+    "Time": "00:10:00",#HH:MM:SS
+    "Program":"./TGV3DMpi Config=tgv3d1024.json"
+}
