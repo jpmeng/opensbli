@@ -1,5 +1,5 @@
 #!/bin/bash
-##@brief Translate a OpenSBLI app to OPS C/C++ code
+##@brief Generate OPS C/C++ code for a OpenSBLI app 
 ##@author Jianping Meng
 ##@contributors
 ##@details
