@@ -87,7 +87,7 @@ then
     module load cmake/3.21.3
     module load PrgEnv-gnu
 
-    if [ ! -z ${HDF5Root} ]
+    if [ -z ${HDF5Root} ]
     then
         module load cray-hdf5-parallel
     fi
@@ -96,10 +96,10 @@ fi
 if [ $Machine == "IRIDIS5" ]
 then
     module load gcc/6.4.0
-    if [ ! -z ${HDF5Root} ]
+    if [ -z ${HDF5Root} ]
     then
         module load hdf5/1.10.2/gcc/parallel
-    if
+    fi
     module load cuda/10.0
     module load cmake
 fi
