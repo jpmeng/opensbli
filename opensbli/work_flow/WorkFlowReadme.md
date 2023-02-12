@@ -1,5 +1,7 @@
 # How to use work flow scripts
 
+> These set scripts are intended to automatically set up an environment both using and developing OpenSBLI. However, they could be also utilised separately for installing [OPS](https://github.com/OP-DSL/OPS) library, HDF5 library, and create an independent Python environment. 
+
 - Tools needed for scripts
   These work flow scripts will require the following tools pre-installed:
 
@@ -43,7 +45,7 @@
   ```
 - Step 3 Compile the C/C++ code
 
-  When creating the environment at Step 1, the default machine in CompileC.sh will be set to the intended one. Also, CompileC.sh will set the directory where it is to be the environment directory, and use the local HDF5 at the first instance. 
+  When creating the environment at Step 1, the default machine in CompileC.sh will be set to the intended one. Also, CompileC.sh will set the directory where it is to be the environment directory, and use the local HDF5 at the first instance.
 
   ```bash
   # Under the environment directory
